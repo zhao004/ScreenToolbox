@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,7 +29,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
+import com.zhao.screentoolbox.core.model.AppRule
+import com.zhao.screentoolbox.core.model.GLOBAL_RULE_PACKAGE
 import com.zhao.screentoolbox.core.model.InstalledAppInfo
+import com.zhao.screentoolbox.core.model.OverlayConfig
+import com.zhao.screentoolbox.core.model.OverlayType
 import com.zhao.screentoolbox.ui.MainUiState
 import com.zhao.screentoolbox.ui.components.InfoCard
 import com.zhao.screentoolbox.ui.components.ScreenHeader
@@ -41,6 +46,7 @@ fun AppsScreen(
     state: MainUiState,
     onUsagePermission: () -> Unit,
     onConfigure: (InstalledAppInfo) -> Unit,
+    onConfigureGlobal: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var query by remember { mutableStateOf("") }
@@ -53,13 +59,26 @@ fun AppsScreen(
             }
         }
     }
+    val activeRulePackages = remember(state.rules, state.overlays) {
+        val configById = state.overlays.associateBy { it.id }
+        state.rules
+            .asSequence()
+            .filter { it.hasActiveConfig(configById) }
+            .mapTo(mutableSetOf()) { it.packageName }
+    }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp, 20.dp, 16.dp, 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            ScreenHeader("应用管理", "为指定应用绑定独立悬浮窗规则")
+            ScreenHeader("应用管理", "为指定应用或全局应用配置叠加规则")
+        }
+        item {
+            GlobalRuleRow(
+                hasRule = GLOBAL_RULE_PACKAGE in activeRulePackages,
+                onClick = onConfigureGlobal,
+            )
         }
         if (!state.permissions.usageAccessGranted) {
             item {
@@ -115,9 +134,78 @@ fun AppsScreen(
             items(filteredApps, key = { it.packageName }) { app ->
                 AppRuleRow(
                     app = app,
-                    hasRule = state.rules.any { it.packageName == app.packageName },
+                    hasRule = app.packageName in activeRulePackages,
                     onClick = { onConfigure(app) },
                 )
+            }
+        }
+    }
+}
+
+private fun AppRule.hasActiveConfig(configById: Map<String, OverlayConfig>): Boolean {
+    if (!enabled) return false
+    return configIds.any { configId ->
+        val config = configById[configId] ?: return@any false
+        when (config.type) {
+            OverlayType.BURN_MASK -> burnMaskEnabled
+            OverlayType.TOUCH_BLOCK -> touchBlockEnabled
+            OverlayType.WATERMARK -> watermarkEnabled
+        }
+    }
+}
+
+@Composable
+private fun GlobalRuleRow(
+    hasRule: Boolean,
+    onClick: () -> Unit,
+) {
+    val semanticColors = MaterialTheme.appSemanticColors
+    InfoCard(
+        modifier = Modifier
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = "配置全局应用" },
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Outlined.Public,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Column(Modifier.weight(1f)) {
+                Text("全局应用", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "所有前台应用叠加生效的规则",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (hasRule) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(semanticColors.success),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Check,
+                        contentDescription = "已配置全局规则",
+                        tint = semanticColors.onSuccess,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
             }
         }
     }

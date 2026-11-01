@@ -13,6 +13,8 @@ import com.zhao.screentoolbox.core.model.OverlayConfig
 import com.zhao.screentoolbox.core.model.OverlayType
 import com.zhao.screentoolbox.core.model.PermissionSnapshot
 import com.zhao.screentoolbox.core.model.TouchBlockConfig
+import com.zhao.screentoolbox.core.model.WatermarkConfig
+import com.zhao.screentoolbox.core.model.isGlobalRule
 import com.zhao.screentoolbox.domain.repository.AppRuleRepository
 import com.zhao.screentoolbox.domain.repository.OverlayRepository
 import com.zhao.screentoolbox.domain.repository.SettingsRepository
@@ -47,6 +49,17 @@ data class MainUiState(
     val loadingApps: Boolean = true,
 )
 
+/** 规则编辑器发起的跨页面或外部应用操作。 */
+sealed interface RuleActionEvent {
+    data class LaunchApplication(val packageName: String) : RuleActionEvent
+    data class OpenWatermark(
+        val configId: String,
+        val rulePackageName: String,
+        val ruleDisplayName: String,
+        val attachToRule: Boolean,
+    ) : RuleActionEvent
+}
+
 @HiltViewModel
 class MainViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -62,8 +75,11 @@ class MainViewModel @Inject constructor(
     private val permissions = MutableStateFlow(permissionManager.snapshot())
     private val loadingApps = MutableStateFlow(true)
     private val messages = Channel<String>(Channel.BUFFERED)
+    private val ruleActions = Channel<RuleActionEvent>(Channel.BUFFERED)
+    private var pendingWatermarkRule: AppRule? = null
 
     val messageEvents = messages.receiveAsFlow()
+    val ruleActionEvents = ruleActions.receiveAsFlow()
 
     private val coreState = combine(
         overlayRepository.overlays,
@@ -145,19 +161,6 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun toggleOverlay(config: OverlayConfig, enabled: Boolean) {
-        viewModelScope.launch {
-            runCatching { overlayRepository.setEnabled(config.id, enabled) }
-                .onFailure { messages.send("更新悬浮窗状态失败") }
-        }
-    }
-
-    fun setFeatureEnabled(type: OverlayType, enabled: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.setFeatureEnabled(type, enabled)
-        }
-    }
-
     fun setAutoStartOnBoot(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setAutoStartOnBoot(enabled)
@@ -192,6 +195,84 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    /** 为当前规则新增指定类型的配置，规则只在配置保存成功时落库。 */
+    fun addRuleConfig(rule: AppRule, type: OverlayType) {
+        pendingWatermarkRule = null
+        when (type) {
+            OverlayType.WATERMARK -> openWatermarkEditor(rule, configId = "new", attachToRule = true)
+            OverlayType.BURN_MASK,
+            OverlayType.TOUCH_BLOCK -> {
+                val config = createRegionConfig(type, rule.displayName)
+                startRegionEditor(
+                    rule = rule,
+                    config = config,
+                    isNewConfig = true,
+                    showOpacityControl = true,
+                )
+            }
+        }
+    }
+
+    /** 编辑已绑定配置；规则开关随配置保存结果一起提交。 */
+    fun editRuleConfig(rule: AppRule, config: OverlayConfig) {
+        pendingWatermarkRule = null
+        when (config) {
+            is WatermarkConfig -> openWatermarkEditor(
+                rule = rule,
+                configId = config.id,
+                attachToRule = false,
+            )
+
+            is BurnMaskConfig,
+            is TouchBlockConfig -> startRegionEditor(
+                rule = rule,
+                config = config,
+                isNewConfig = false,
+                showOpacityControl = false,
+            )
+        }
+    }
+
+    /** 新水印保存成功后绑定发起添加的规则，失败时删除刚写入的孤立配置。 */
+    fun saveOverlayForRule(
+        config: OverlayConfig,
+        rulePackageName: String,
+        ruleDisplayName: String,
+    ) {
+        val pendingRule = pendingWatermarkRule?.takeIf {
+            it.packageName == rulePackageName
+        }
+        pendingWatermarkRule = null
+        viewModelScope.launch {
+            val result = runCatching {
+                overlayRepository.upsert(config)
+                if (pendingRule != null) {
+                    appRuleRepository.save(
+                        pendingRule.copy(configIds = pendingRule.configIds + config.id),
+                    )
+                } else {
+                    appRuleRepository.attachConfig(
+                        packageName = rulePackageName,
+                        displayName = ruleDisplayName,
+                        configId = config.id,
+                    )
+                }
+            }
+            if (result.isFailure) {
+                runCatching { overlayRepository.delete(config.id) }
+                messages.send("保存规则配置失败")
+            }
+        }
+    }
+
+    /** 取消水印编辑时丢弃尚未提交的规则草稿。 */
+    fun cancelPendingRuleEdit() {
+        pendingWatermarkRule = null
+    }
+
+    fun launchIntent(packageName: String): Intent? =
+        installedAppRepository.launchIntent(packageName)
+
     fun previewOverlay(config: OverlayConfig) {
         if (!permissionManager.canDrawOverlays()) {
             viewModelScope.launch { messages.send("请先授权悬浮窗权限后再预览") }
@@ -203,13 +284,11 @@ class MainViewModel @Inject constructor(
         commandBus.send(OverlayCommand.Preview(config))
     }
 
-    /** 新建防烧屏或防误触时直接进入系统悬浮编辑，不跳转应用内编辑页。 */
-    fun startRegionEditor(type: OverlayType) {
-        if (type != OverlayType.BURN_MASK && type != OverlayType.TOUCH_BLOCK) return
-        val config = when (type) {
+    private fun createRegionConfig(type: OverlayType, displayName: String): OverlayConfig =
+        when (type) {
             OverlayType.BURN_MASK -> BurnMaskConfig(
                 id = UUID.randomUUID().toString(),
-                name = "防烧屏遮罩",
+                name = "$displayName 防烧屏",
                 enabled = true,
                 rect = NormalizedRect(0.15f, 0.2f, 0.7f, 0.2f),
                 alpha = 0.6f,
@@ -217,50 +296,101 @@ class MainViewModel @Inject constructor(
 
             OverlayType.TOUCH_BLOCK -> TouchBlockConfig(
                 id = UUID.randomUUID().toString(),
-                name = "防误触区域",
+                name = "$displayName 防误触",
                 enabled = true,
                 rect = NormalizedRect(0.1f, 0.4f, 0.8f, 0.2f),
                 alpha = 0.2f,
             )
 
-            OverlayType.WATERMARK -> return
+            OverlayType.WATERMARK -> error("水印配置由独立编辑流程创建")
         }
-        launchRegionEditor(config, operation = "新建", showOpacityControl = true)
+
+    private fun openWatermarkEditor(
+        rule: AppRule,
+        configId: String,
+        attachToRule: Boolean,
+    ) {
+        pendingWatermarkRule = rule.takeIf { attachToRule }
+        val sent = ruleActions.trySend(
+            RuleActionEvent.OpenWatermark(
+                configId = configId,
+                rulePackageName = rule.packageName,
+                ruleDisplayName = rule.displayName,
+                attachToRule = attachToRule,
+            ),
+        ).isSuccess
+        if (!sent) {
+            messages.trySend("无法打开水印配置页面")
+        }
     }
 
-    /** 编辑现有防烧屏或防误触配置时复用系统悬浮编辑面板。 */
-    fun startRegionEditor(config: OverlayConfig) {
+    private fun startRegionEditor(
+        rule: AppRule,
+        config: OverlayConfig,
+        isNewConfig: Boolean,
+        showOpacityControl: Boolean,
+    ) {
         if (config.type != OverlayType.BURN_MASK && config.type != OverlayType.TOUCH_BLOCK) {
             return
         }
-        launchRegionEditor(config, operation = "编辑", showOpacityControl = false)
-    }
-
-    private fun launchRegionEditor(
-        config: OverlayConfig,
-        operation: String,
-        showOpacityControl: Boolean,
-    ) {
         if (!permissionManager.canDrawOverlays()) {
-            messages.trySend("请先授权悬浮窗权限后再$operation")
+            messages.trySend("请先授权悬浮窗权限后再编辑规则")
             return
         }
         if (config.type == OverlayType.BURN_MASK &&
             !permissionManager.canUseAccessibilityOverlay()
         ) {
-            messages.trySend("请先在设置中启用无障碍服务后再${operation}防烧屏遮罩")
+            messages.trySend("请先在设置中启用无障碍服务后再编辑防烧屏规则")
             return
         }
+        val targetPackage = rule.packageName.takeUnless { rule.isGlobalRule() }
+        if (targetPackage != null && installedAppRepository.launchIntent(targetPackage) == null) {
+            messages.trySend("目标应用不可启动，可能已被卸载")
+            return
+        }
+
+        if (!startRegionEditorSession(
+                config = config,
+                showOpacityControl = showOpacityControl,
+                pendingRule = rule,
+                isNewConfig = isNewConfig,
+            )
+        ) {
+            return
+        }
+        targetPackage?.let {
+            if (ruleActions.trySend(RuleActionEvent.LaunchApplication(it)).isFailure) {
+                messages.trySend("无法启动目标应用")
+            }
+        }
+    }
+
+    private fun startRegionEditorSession(
+        config: OverlayConfig,
+        showOpacityControl: Boolean,
+        pendingRule: AppRule,
+        isNewConfig: Boolean,
+    ): Boolean {
         if (!uiState.value.runtime.serviceRunning) {
-            runCatching { OverlayService.start(context) }
-                .onFailure {
-                    messages.trySend("悬浮编辑服务启动失败")
-                    return
-                }
+            val serviceResult = runCatching { OverlayService.start(context) }
+            if (serviceResult.isFailure) {
+                messages.trySend("悬浮编辑服务启动失败")
+                return false
+            }
         }
-        if (!commandBus.send(OverlayCommand.StartRegionEditor(config, showOpacityControl))) {
+        val sent = commandBus.send(
+            OverlayCommand.StartRegionEditor(
+                config = config,
+                showOpacityControl = showOpacityControl,
+                pendingRule = pendingRule,
+                isNewConfig = isNewConfig,
+            ),
+        )
+        if (!sent) {
             messages.trySend("无法启动悬浮编辑面板")
+            return false
         }
+        return true
     }
 
     fun endPreview() {

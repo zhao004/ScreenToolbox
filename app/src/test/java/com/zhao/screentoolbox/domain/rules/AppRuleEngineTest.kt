@@ -1,8 +1,9 @@
 package com.zhao.screentoolbox.domain.rules
 
 import com.zhao.screentoolbox.core.model.AppRule
-import com.zhao.screentoolbox.core.model.AppSettings
 import com.zhao.screentoolbox.core.model.BurnMaskConfig
+import com.zhao.screentoolbox.core.model.GLOBAL_RULE_DISPLAY_NAME
+import com.zhao.screentoolbox.core.model.GLOBAL_RULE_PACKAGE
 import com.zhao.screentoolbox.core.model.NormalizedRect
 import com.zhao.screentoolbox.core.model.TouchBlockConfig
 import com.zhao.screentoolbox.core.model.WatermarkConfig
@@ -16,25 +17,24 @@ class AppRuleEngineTest {
     private val touch = TouchBlockConfig("touch", "防误触", true, NormalizedRect(0f, 0.8f, 1f, 0.2f))
     private val watermark = WatermarkConfig("watermark", "水印", true)
     private val configs = listOf(burn, touch, watermark)
+    private val globalRule = AppRule(
+        id = 1,
+        packageName = GLOBAL_RULE_PACKAGE,
+        displayName = GLOBAL_RULE_DISPLAY_NAME,
+        configIds = setOf("burn", "touch"),
+    )
+    private val appRule = AppRule(
+        id = 2,
+        packageName = "target.app",
+        displayName = "Target",
+        configIds = setOf("touch", "watermark"),
+    )
 
     @Test
-    fun matchingRuleTakesPriorityAndCanEnableGloballyDisabledConfig() {
-        val rule = AppRule(
-            id = 1,
-            packageName = "target.app",
-            displayName = "Target",
-            configIds = setOf("burn", "touch", "watermark"),
-        )
+    fun globalAndMatchingAppRulesAreMergedAndDeduplicated() {
         val resolution = engine.resolve(
-            configs = configs.map {
-                when (it) {
-                    is BurnMaskConfig -> it.copy(enabled = false)
-                    is TouchBlockConfig -> it.copy(enabled = false)
-                    is WatermarkConfig -> it.copy(enabled = false)
-                }
-            },
-            rules = listOf(rule),
-            settings = AppSettings(),
+            configs = configs,
+            rules = listOf(globalRule, appRule),
             foregroundPackage = "target.app",
             ownPackage = "self.app",
             temporaryUnlockActive = false,
@@ -42,77 +42,97 @@ class AppRuleEngineTest {
         )
 
         assertEquals("target.app", resolution.matchedRulePackage)
-        assertEquals(setOf("burn", "touch", "watermark"), resolution.activeConfigs.map { it.id }.toSet())
-        assertEquals(3, resolution.ruleControlledTypes.size)
+        assertEquals(
+            linkedSetOf("burn", "touch", "watermark"),
+            resolution.activeConfigs.mapTo(linkedSetOf()) { it.id },
+        )
+        assertEquals(3, resolution.activeConfigs.size)
     }
 
     @Test
-    fun temporaryUnlockOnlyRemovesTouchBlockers() {
+    fun globalRuleRemainsActiveWithoutMatchingAppRule() {
         val resolution = engine.resolve(
             configs = configs,
-            rules = emptyList(),
-            settings = AppSettings(),
-            foregroundPackage = "other.app",
-            ownPackage = "self.app",
-            temporaryUnlockActive = true,
-            preview = null,
-        )
-
-        assertEquals(setOf("burn", "watermark"), resolution.activeConfigs.map { it.id }.toSet())
-    }
-
-    @Test
-    fun boundConfigIsExcludedFromGlobalFallback() {
-        val rule = AppRule(
-            id = 1,
-            packageName = "target.app",
-            displayName = "Target",
-            configIds = setOf("burn"),
-        )
-
-        val resolution = engine.resolve(
-            configs = configs,
-            rules = listOf(rule),
-            settings = AppSettings(),
+            rules = listOf(globalRule, appRule),
             foregroundPackage = "other.app",
             ownPackage = "self.app",
             temporaryUnlockActive = false,
             preview = null,
         )
 
-        assertEquals(setOf("touch", "watermark"), resolution.activeConfigs.map { it.id }.toSet())
+        assertEquals(GLOBAL_RULE_PACKAGE, resolution.matchedRulePackage)
+        assertEquals(setOf("burn", "touch"), resolution.activeConfigs.mapTo(mutableSetOf()) { it.id })
     }
 
     @Test
-    fun disabledRuleDoesNotMatchButKeepsItsConfigsScoped() {
-        val rule = AppRule(
-            id = 1,
-            packageName = "target.app",
-            displayName = "Target",
-            enabled = false,
-            configIds = setOf("watermark"),
-        )
-
+    fun disabledRulesDoNotContribute() {
         val resolution = engine.resolve(
             configs = configs,
-            rules = listOf(rule),
-            settings = AppSettings(),
+            rules = listOf(
+                globalRule.copy(enabled = false),
+                appRule.copy(enabled = false),
+            ),
             foregroundPackage = "target.app",
             ownPackage = "self.app",
             temporaryUnlockActive = false,
             preview = null,
         )
 
+        assertTrue(resolution.activeConfigs.isEmpty())
         assertEquals(null, resolution.matchedRulePackage)
-        assertEquals(setOf("burn", "touch"), resolution.activeConfigs.map { it.id }.toSet())
     }
 
     @Test
-    fun ownPackageHidesRegularOverlays() {
+    fun temporaryUnlockRemovesTouchBlockersFromMergedRules() {
         val resolution = engine.resolve(
             configs = configs,
-            rules = emptyList(),
-            settings = AppSettings(),
+            rules = listOf(globalRule, appRule),
+            foregroundPackage = "target.app",
+            ownPackage = "self.app",
+            temporaryUnlockActive = true,
+            preview = null,
+        )
+
+        assertEquals(setOf("burn", "watermark"), resolution.activeConfigs.mapTo(mutableSetOf()) { it.id })
+    }
+
+    @Test
+    fun eachRuleAppliesItsOwnTypeSwitches() {
+        val resolution = engine.resolve(
+            configs = configs,
+            rules = listOf(
+                globalRule.copy(burnMaskEnabled = false),
+                appRule.copy(watermarkEnabled = false, touchBlockEnabled = false),
+            ),
+            foregroundPackage = "target.app",
+            ownPackage = "self.app",
+            temporaryUnlockActive = false,
+            preview = null,
+        )
+
+        assertEquals(setOf("touch"), resolution.activeConfigs.mapTo(mutableSetOf()) { it.id })
+        assertEquals(GLOBAL_RULE_PACKAGE, resolution.matchedRulePackage)
+    }
+
+    @Test
+    fun unboundConfigsNoLongerFallbackToGlobalDisplay() {
+        val resolution = engine.resolve(
+            configs = configs,
+            rules = listOf(globalRule.copy(configIds = setOf("burn"))),
+            foregroundPackage = "other.app",
+            ownPackage = "self.app",
+            temporaryUnlockActive = false,
+            preview = null,
+        )
+
+        assertEquals(listOf("burn"), resolution.activeConfigs.map { it.id })
+    }
+
+    @Test
+    fun ownPackageHidesRegularRules() {
+        val resolution = engine.resolve(
+            configs = configs,
+            rules = listOf(globalRule, appRule),
             foregroundPackage = "self.app",
             ownPackage = "self.app",
             temporaryUnlockActive = false,
@@ -127,8 +147,7 @@ class AppRuleEngineTest {
         val preview = watermark.copy(id = "preview")
         val resolution = engine.resolve(
             configs = configs,
-            rules = emptyList(),
-            settings = AppSettings(),
+            rules = listOf(globalRule, appRule),
             foregroundPackage = "self.app",
             ownPackage = "self.app",
             temporaryUnlockActive = true,

@@ -127,16 +127,14 @@ data class AppRule(
     val configIds: Set<String> = emptySet(),
 )
 
-data class AppRuleTarget(
-    val id: Long,
-    val packageName: String,
-    val displayName: String,
-    val enabled: Boolean,
-    val burnMaskEnabled: Boolean,
-    val touchBlockEnabled: Boolean,
-    val watermarkEnabled: Boolean,
-    val configIds: Set<String>,
-)
+/** 全局规则复用应用规则表，使用不可作为 Android 包名的保留键。 */
+const val GLOBAL_RULE_PACKAGE = "__screen_toolbox_global__"
+
+/** 全局规则在界面和数据库中的固定名称。 */
+const val GLOBAL_RULE_DISPLAY_NAME = "全局应用"
+
+/** 判断规则是否代表对所有前台应用生效的全局规则。 */
+fun AppRule.isGlobalRule(): Boolean = packageName == GLOBAL_RULE_PACKAGE
 
 data class InstalledAppInfo(
     val packageName: String,
@@ -146,9 +144,6 @@ data class InstalledAppInfo(
 data class AppSettings(
     val serviceEnabled: Boolean = false,
     val autoStartOnBoot: Boolean = false,
-    val burnMaskGloballyEnabled: Boolean = true,
-    val touchBlockGloballyEnabled: Boolean = true,
-    val watermarkGloballyEnabled: Boolean = true,
 )
 
 data class PermissionSnapshot(
@@ -156,12 +151,6 @@ data class PermissionSnapshot(
     val accessibilityGranted: Boolean = false,
     val usageAccessGranted: Boolean = false,
     val notificationGranted: Boolean = false,
-)
-
-data class FeatureAvailability(
-    val burnMaskEnabled: Boolean = true,
-    val touchBlockEnabled: Boolean = true,
-    val watermarkEnabled: Boolean = true,
 )
 
 data class OverlayRuleResolution(
@@ -174,12 +163,6 @@ fun OverlayConfig.withRect(rect: NormalizedRect): OverlayConfig = when (this) {
     is BurnMaskConfig -> copy(rect = rect)
     is TouchBlockConfig -> copy(rect = rect)
     is WatermarkConfig -> copy(rect = rect)
-}
-
-fun OverlayConfig.withEnabled(enabled: Boolean): OverlayConfig = when (this) {
-    is BurnMaskConfig -> copy(enabled = enabled)
-    is TouchBlockConfig -> copy(enabled = enabled)
-    is WatermarkConfig -> copy(enabled = enabled)
 }
 
 fun normalizedRectFromPixels(

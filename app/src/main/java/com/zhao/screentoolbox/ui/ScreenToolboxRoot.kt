@@ -1,7 +1,6 @@
 package com.zhao.screentoolbox.ui
 
 import android.Manifest
-import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -39,30 +37,33 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.zhao.screentoolbox.core.model.AppRule
-import com.zhao.screentoolbox.core.model.BurnMaskConfig
-import com.zhao.screentoolbox.core.model.InstalledAppInfo
-import com.zhao.screentoolbox.core.model.OverlayConfig
-import com.zhao.screentoolbox.core.model.OverlayType
-import com.zhao.screentoolbox.core.model.TouchBlockConfig
+import com.zhao.screentoolbox.core.model.GLOBAL_RULE_DISPLAY_NAME
+import com.zhao.screentoolbox.core.model.GLOBAL_RULE_PACKAGE
 import com.zhao.screentoolbox.core.model.WatermarkConfig
 import com.zhao.screentoolbox.ui.feature.apps.AppRuleEditorScreen
 import com.zhao.screentoolbox.ui.feature.apps.AppsScreen
 import com.zhao.screentoolbox.ui.feature.home.HomeScreen
-import com.zhao.screentoolbox.ui.feature.overlays.OverlaysScreen
 import com.zhao.screentoolbox.ui.feature.overlays.WatermarkEditorScreen
 import com.zhao.screentoolbox.ui.feature.settings.SettingsScreen
 import java.util.UUID
 
 private object Routes {
     const val Home = "home"
-    const val Overlays = "overlays"
     const val Apps = "apps"
     const val Settings = "settings"
-    const val WatermarkEditor = "watermark/{id}"
+    const val WatermarkEditor = "watermark/{id}/{rulePackage}/{ruleLabel}/{attach}"
     const val AppRuleEditor = "rule/{packageName}/{label}"
 
-    fun watermark(id: String) = "watermark/$id"
-    fun rule(app: InstalledAppInfo) = "rule/${Uri.encode(app.packageName)}/${Uri.encode(app.label)}"
+    fun watermark(
+        id: String,
+        rulePackageName: String,
+        ruleDisplayName: String,
+        attachToRule: Boolean,
+    ) = "watermark/${Uri.encode(id)}/${Uri.encode(rulePackageName)}/" +
+        "${Uri.encode(ruleDisplayName)}/$attachToRule"
+
+    fun rule(packageName: String, label: String) =
+        "rule/${Uri.encode(packageName)}/${Uri.encode(label)}"
 }
 
 private data class BottomDestination(
@@ -73,7 +74,6 @@ private data class BottomDestination(
 
 private val bottomDestinations = listOf(
     BottomDestination(Routes.Home, "首页", Icons.Outlined.Home),
-    BottomDestination(Routes.Overlays, "悬浮窗", Icons.Outlined.Layers),
     BottomDestination(Routes.Apps, "应用", Icons.Outlined.Apps),
     BottomDestination(Routes.Settings, "设置", Icons.Outlined.Settings),
 )
@@ -99,6 +99,32 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
 
     LaunchedEffect(viewModel) {
         viewModel.messageEvents.collect { snackbar.showSnackbar(it) }
+    }
+    LaunchedEffect(viewModel, navController) {
+        viewModel.ruleActionEvents.collect { action ->
+            when (action) {
+                is RuleActionEvent.LaunchApplication -> {
+                    val launchIntent = viewModel.launchIntent(action.packageName)
+                    if (launchIntent == null) {
+                        snackbar.showSnackbar("无法启动目标应用")
+                    } else {
+                        runCatching { context.startActivity(launchIntent) }
+                            .onFailure { snackbar.showSnackbar("无法启动目标应用") }
+                    }
+                }
+
+                is RuleActionEvent.OpenWatermark -> {
+                    navController.navigate(
+                        Routes.watermark(
+                            id = action.configId,
+                            rulePackageName = action.rulePackageName,
+                            ruleDisplayName = action.ruleDisplayName,
+                            attachToRule = action.attachToRule,
+                        ),
+                    )
+                }
+            }
+        }
     }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -148,35 +174,7 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
                 HomeScreen(
                     state = state,
                     onServiceToggle = viewModel::setServiceEnabled,
-                    onFeatureToggle = viewModel::setFeatureEnabled,
                     onDismissError = viewModel::clearRuntimeError,
-                )
-            }
-            composable(Routes.Overlays) {
-                OverlaysScreen(
-                    state = state,
-                    onAdd = { type ->
-                        when (type) {
-                            OverlayType.BURN_MASK,
-                            OverlayType.TOUCH_BLOCK -> viewModel.startRegionEditor(type)
-
-                            OverlayType.WATERMARK -> {
-                                navController.navigate(Routes.watermark("new"))
-                            }
-                        }
-                    },
-                    onEdit = { config ->
-                        when (config) {
-                            is BurnMaskConfig,
-                            is TouchBlockConfig -> viewModel.startRegionEditor(config)
-
-                            is WatermarkConfig -> {
-                                navController.navigate(Routes.watermark(config.id))
-                            }
-                        }
-                    },
-                    onToggle = viewModel::toggleOverlay,
-                    onDelete = viewModel::deleteOverlay,
                 )
             }
             composable(Routes.Apps) {
@@ -185,7 +183,14 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
                     onUsagePermission = {
                         context.startActivity(viewModel.usageAccessIntent())
                     },
-                    onConfigure = { app -> navController.navigate(Routes.rule(app)) },
+                    onConfigure = { app ->
+                        navController.navigate(Routes.rule(app.packageName, app.label))
+                    },
+                    onConfigureGlobal = {
+                        navController.navigate(
+                            Routes.rule(GLOBAL_RULE_PACKAGE, GLOBAL_RULE_DISPLAY_NAME),
+                        )
+                    },
                 )
             }
             composable(Routes.Settings) {
@@ -206,9 +211,12 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
             }
             composable(Routes.WatermarkEditor) { entry ->
                 val id = entry.arguments?.getString("id").orEmpty()
+                val rulePackageName = entry.arguments?.getString("rulePackage").orEmpty()
+                val ruleDisplayName = entry.arguments?.getString("ruleLabel").orEmpty()
+                val attachToRule = entry.arguments?.getString("attach").toBoolean()
                 val existing = state.overlays.filterIsInstance<WatermarkConfig>().firstOrNull { it.id == id }
                 val initial = if (id == "new") {
-                    remember(id) {
+                    remember(id, rulePackageName) {
                         WatermarkConfig(
                             id = UUID.randomUUID().toString(),
                             name = "",
@@ -223,8 +231,21 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
                         initial = initial,
                         onPreview = viewModel::previewOverlay,
                         onEndPreview = viewModel::endPreview,
-                        onSave = viewModel::upsertOverlay,
-                        onBack = { navController.popBackStack() },
+                        onSave = { config ->
+                            if (attachToRule) {
+                                viewModel.saveOverlayForRule(
+                                    config = config,
+                                    rulePackageName = rulePackageName,
+                                    ruleDisplayName = ruleDisplayName,
+                                )
+                            } else {
+                                viewModel.upsertOverlay(config)
+                            }
+                        },
+                        onBack = {
+                            viewModel.cancelPendingRuleEdit()
+                            navController.popBackStack()
+                        },
                     )
                 }
             }
@@ -236,10 +257,20 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
                     packageName = packageName,
                     displayName = label.ifBlank { packageName },
                 )
+                val ruleReferenceCounts = remember(state.rules) {
+                    state.rules
+                        .flatMap { it.configIds }
+                        .groupingBy { it }
+                        .eachCount()
+                }
                 AppRuleEditorScreen(
                     initial = initial,
                     overlays = state.overlays,
+                    ruleReferenceCounts = ruleReferenceCounts,
                     onSave = viewModel::saveRule,
+                    onAddRule = viewModel::addRuleConfig,
+                    onEditConfig = viewModel::editRuleConfig,
+                    onDeleteConfig = { config -> viewModel.deleteOverlay(config.id) },
                     onBack = { navController.popBackStack() },
                 )
             }

@@ -17,6 +17,7 @@ import com.zhao.screentoolbox.core.model.AppRule
 import com.zhao.screentoolbox.core.model.AppSettings
 import com.zhao.screentoolbox.core.model.OverlayConfig
 import com.zhao.screentoolbox.core.model.OverlayType
+import com.zhao.screentoolbox.core.model.isGlobalRule
 import com.zhao.screentoolbox.domain.repository.AppRuleRepository
 import com.zhao.screentoolbox.domain.repository.SettingsRepository
 import com.zhao.screentoolbox.domain.rules.AppRuleEngine
@@ -78,6 +79,8 @@ class OverlayService : Service() {
     private var foregroundPackage: String? = null
     private var previewConfig: OverlayConfig? = null
     private var regionEditorShowsOpacityControl = false
+    private var regionEditorPendingRule: AppRule? = null
+    private var regionEditorIsNewConfig = false
     private var temporaryUnlockUntil: Long? = null
     private var unlockJob: Job? = null
 
@@ -146,12 +149,19 @@ class OverlayService : Service() {
             commandBus.commands.collect { command ->
                 when (command) {
                     is OverlayCommand.StartRegionEditor -> {
-                        startRegionEditor(command.config, command.showOpacityControl)
+                        startRegionEditor(
+                            config = command.config,
+                            showOpacityControl = command.showOpacityControl,
+                            pendingRule = command.pendingRule,
+                            isNewConfig = command.isNewConfig,
+                        )
                     }
 
                     is OverlayCommand.Preview -> {
                         overlayManager.removeEditorPanel()
                         regionEditorShowsOpacityControl = false
+                        regionEditorPendingRule = null
+                        regionEditorIsNewConfig = false
                         previewConfig = command.config
                         reconcile()
                     }
@@ -159,6 +169,8 @@ class OverlayService : Service() {
                     OverlayCommand.EndPreview -> {
                         overlayManager.removeEditorPanel()
                         previewConfig = null
+                        regionEditorPendingRule = null
+                        regionEditorIsNewConfig = false
                         reconcile()
                         if (!settings.serviceEnabled) {
                             stopAllInternal()
@@ -179,7 +191,12 @@ class OverlayService : Service() {
                             !overlayManager.isEditorPanelVisible() &&
                             canRestoreEditor
                         ) {
-                            startRegionEditor(editorConfig, regionEditorShowsOpacityControl)
+                            startRegionEditor(
+                                config = editorConfig,
+                                showOpacityControl = regionEditorShowsOpacityControl,
+                                pendingRule = regionEditorPendingRule,
+                                isNewConfig = regionEditorIsNewConfig,
+                            )
                         }
                         log("ACCESSIBILITY_HOST_CHANGED")
                     }
@@ -209,11 +226,15 @@ class OverlayService : Service() {
     private fun startRegionEditor(
         config: OverlayConfig,
         showOpacityControl: Boolean,
+        pendingRule: AppRule? = null,
+        isNewConfig: Boolean = false,
     ) {
         if (config.type != OverlayType.BURN_MASK && config.type != OverlayType.TOUCH_BLOCK) {
             return
         }
         regionEditorShowsOpacityControl = showOpacityControl
+        regionEditorPendingRule = pendingRule
+        regionEditorIsNewConfig = isNewConfig
         previewConfig = config
         reconcile()
         overlayManager.showEditorPanel(
@@ -238,8 +259,18 @@ class OverlayService : Service() {
         if (config.type != OverlayType.BURN_MASK && config.type != OverlayType.TOUCH_BLOCK) {
             return
         }
-        runCatching { overlayRepository.upsert(config) }
+        runCatching {
+            overlayRepository.upsert(config)
+            regionEditorPendingRule?.let { rule ->
+                appRuleRepository.save(
+                    rule.copy(configIds = rule.configIds + config.id),
+                )
+            }
+        }
             .onFailure {
+                if (regionEditorIsNewConfig) {
+                    runCatching { overlayRepository.delete(config.id) }
+                }
                 runtimeStore.update { state ->
                     state.copy(lastError = "保存悬浮编辑配置失败")
                 }
@@ -249,6 +280,8 @@ class OverlayService : Service() {
         overlayManager.removeEditorPanel()
         previewConfig = null
         regionEditorShowsOpacityControl = false
+        regionEditorPendingRule = null
+        regionEditorIsNewConfig = false
         log("REGION_EDITOR_SAVE", config.type.name)
         if (settings.serviceEnabled) {
             reconcile()
@@ -261,6 +294,8 @@ class OverlayService : Service() {
         overlayManager.removeEditorPanel()
         previewConfig = null
         regionEditorShowsOpacityControl = false
+        regionEditorPendingRule = null
+        regionEditorIsNewConfig = false
         log("REGION_EDITOR_CANCEL")
         if (settings.serviceEnabled) {
             reconcile()
@@ -285,7 +320,11 @@ class OverlayService : Service() {
             updateNotification()
             return
         }
-        if (rules.any { it.enabled } && !permissionManager.hasUsageAccess()) {
+        val configById = configs.associateBy { it.id }
+        val hasConfiguredAppRule = rules.any {
+            !it.isGlobalRule() && it.hasActiveConfig(configById)
+        }
+        if (hasConfiguredAppRule && !permissionManager.hasUsageAccess()) {
             runtimeStore.update {
                 it.copy(lastError = "使用情况访问权限不可用，无法识别前台应用")
             }
@@ -294,7 +333,6 @@ class OverlayService : Service() {
         val resolution = appRuleEngine.resolve(
             configs = configs,
             rules = rules,
-            settings = settings,
             foregroundPackage = foregroundPackage,
             ownPackage = packageName,
             temporaryUnlockActive = temporaryActive,
@@ -348,6 +386,8 @@ class OverlayService : Service() {
         temporaryUnlockUntil = null
         previewConfig = null
         regionEditorShowsOpacityControl = false
+        regionEditorPendingRule = null
+        regionEditorIsNewConfig = false
         overlayManager.removeAll()
         runtimeStore.update {
             OverlayRuntimeState(serviceRunning = false)
@@ -358,6 +398,18 @@ class OverlayService : Service() {
 
     private fun log(action: String, detail: String? = null) {
         serviceScope.launch { operationLogRepository.record(action, detail) }
+    }
+
+    private fun AppRule.hasActiveConfig(configById: Map<String, OverlayConfig>): Boolean {
+        if (!enabled) return false
+        return configIds.any { configId ->
+            val config = configById[configId] ?: return@any false
+            when (config.type) {
+                OverlayType.BURN_MASK -> burnMaskEnabled
+                OverlayType.TOUCH_BLOCK -> touchBlockEnabled
+                OverlayType.WATERMARK -> watermarkEnabled
+            }
+        }
     }
 
     private fun startAsForeground(state: OverlayRuntimeState) {

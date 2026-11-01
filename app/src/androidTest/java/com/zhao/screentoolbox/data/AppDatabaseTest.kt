@@ -4,7 +4,11 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.zhao.screentoolbox.core.model.AppRule
+import com.zhao.screentoolbox.core.model.GLOBAL_RULE_DISPLAY_NAME
+import com.zhao.screentoolbox.core.model.GLOBAL_RULE_PACKAGE
 import com.zhao.screentoolbox.core.model.WatermarkMode
+import com.zhao.screentoolbox.data.repository.AppRuleRepositoryImpl
 import com.zhao.screentoolbox.data.database.AppDatabase
 import com.zhao.screentoolbox.data.database.AppRuleConfigCrossRef
 import com.zhao.screentoolbox.data.database.AppRuleEntity
@@ -89,5 +93,73 @@ class AppDatabaseTest {
 
         dao.delete("watermark")
         assertEquals(0, database.appRuleDao().observeAll().first().single().configs.size)
+    }
+
+    @Test
+    fun attachConfigCreatesOrUpdatesRulesWithoutDroppingExistingBindings() = runBlocking(Dispatchers.IO) {
+        val repository = AppRuleRepositoryImpl(database)
+        val firstConfigId = "burn"
+        val secondConfigId = "watermark"
+        database.overlayDao().upsertConfig(
+            OverlayConfigEntity(
+                id = firstConfigId,
+                name = "防烧屏",
+                type = OverlayType.BURN_MASK,
+                enabled = true,
+                sortOrder = 0,
+                createdAt = 1,
+                updatedAt = 1,
+            ),
+        )
+        database.overlayDao().upsertConfig(
+            OverlayConfigEntity(
+                id = secondConfigId,
+                name = "水印",
+                type = OverlayType.WATERMARK,
+                enabled = true,
+                sortOrder = 1,
+                createdAt = 1,
+                updatedAt = 1,
+            ),
+        )
+
+        repository.save(
+            AppRule(
+                packageName = GLOBAL_RULE_PACKAGE,
+                displayName = GLOBAL_RULE_DISPLAY_NAME,
+                configIds = setOf(firstConfigId),
+            ),
+        )
+        repository.attachConfig(
+            packageName = GLOBAL_RULE_PACKAGE,
+            displayName = GLOBAL_RULE_DISPLAY_NAME,
+            configId = secondConfigId,
+        )
+        repository.attachConfig(
+            packageName = "target.app",
+            displayName = "Target",
+            configId = firstConfigId,
+        )
+
+        val rules = repository.rules.first().associateBy { it.packageName }
+        assertEquals(
+            setOf(firstConfigId, secondConfigId),
+            rules.getValue(GLOBAL_RULE_PACKAGE).configIds,
+        )
+        assertEquals(setOf(firstConfigId), rules.getValue("target.app").configIds)
+    }
+
+    @Test
+    fun rulesWithoutConfigsAreNotExposed() = runBlocking(Dispatchers.IO) {
+        val repository = AppRuleRepositoryImpl(database)
+
+        repository.save(
+            AppRule(
+                packageName = "empty.app",
+                displayName = "Empty",
+            ),
+        )
+
+        assertEquals(emptyList<AppRule>(), repository.rules.first())
     }
 }

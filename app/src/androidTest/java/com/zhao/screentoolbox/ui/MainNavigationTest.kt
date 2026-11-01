@@ -17,12 +17,12 @@ class MainNavigationTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun topLevelNavigationOpensOverlayScreen() {
+    fun navigationOmitsOverlayPageAndShowsGlobalApplicationEntry() {
         composeRule.onNodeWithText("屏幕工具箱").assertIsDisplayed()
-        composeRule.onNodeWithText("悬浮窗").performClick()
-        composeRule.onNodeWithText("创建、编辑并控制独立的系统窗口").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("新建防烧屏遮罩").assertIsDisplayed()
-        composeRule.onNodeWithText("新建防烧屏遮罩").assertDoesNotExist()
+        composeRule.onNodeWithText("悬浮窗").assertDoesNotExist()
+        composeRule.onNodeWithText("应用").performClick()
+        composeRule.onNodeWithContentDescription("配置全局应用").assertIsDisplayed()
+        composeRule.onNodeWithText("为指定应用或全局应用配置叠加规则").assertIsDisplayed()
     }
 
     @Test

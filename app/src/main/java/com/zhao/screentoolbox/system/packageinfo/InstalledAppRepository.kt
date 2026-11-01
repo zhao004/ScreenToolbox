@@ -17,6 +17,12 @@ import kotlinx.coroutines.withContext
 class InstalledAppRepository @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
+    /** 返回可启动应用的首选 Launcher Intent，应用已卸载或不可启动时返回 null。 */
+    fun launchIntent(packageName: String): Intent? =
+        context.packageManager.getLaunchIntentForPackage(packageName)?.apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
     /** 仅枚举带 Launcher 入口的应用，符合最小软件包可见性声明。 */
     suspend fun loadLauncherApps(): List<InstalledAppInfo> = withContext(Dispatchers.IO) {
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)

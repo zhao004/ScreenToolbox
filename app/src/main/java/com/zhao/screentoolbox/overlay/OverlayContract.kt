@@ -1,5 +1,6 @@
 package com.zhao.screentoolbox.overlay
 
+import com.zhao.screentoolbox.core.model.AppRule
 import com.zhao.screentoolbox.core.model.OverlayConfig
 import com.zhao.screentoolbox.core.model.OverlayType
 import javax.inject.Inject
@@ -24,6 +25,8 @@ sealed interface OverlayCommand {
     data class StartRegionEditor(
         val config: OverlayConfig,
         val showOpacityControl: Boolean = false,
+        val pendingRule: AppRule? = null,
+        val isNewConfig: Boolean = false,
     ) : OverlayCommand
     data object EndPreview : OverlayCommand
     data object TemporaryUnlock : OverlayCommand

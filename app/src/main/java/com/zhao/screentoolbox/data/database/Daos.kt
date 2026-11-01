@@ -33,9 +33,6 @@ interface OverlayDao {
     @Upsert
     suspend fun upsertWatermarkStyle(style: WatermarkStyleEntity)
 
-    @Query("UPDATE overlay_configs SET enabled = :enabled, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun updateEnabled(id: String, enabled: Boolean, updatedAt: Long)
-
     @Query("DELETE FROM overlay_configs WHERE id = :id")
     suspend fun delete(id: String)
 }

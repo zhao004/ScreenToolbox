@@ -10,20 +10,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.BorderClear
-import androidx.compose.material.icons.outlined.Layers
-import androidx.compose.material.icons.outlined.WaterDrop
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import com.zhao.screentoolbox.core.model.OverlayType
+import com.zhao.screentoolbox.core.model.GLOBAL_RULE_PACKAGE
 import com.zhao.screentoolbox.ui.MainUiState
 import com.zhao.screentoolbox.ui.components.ErrorBanner
 import com.zhao.screentoolbox.ui.components.InfoCard
@@ -34,7 +28,6 @@ import com.zhao.screentoolbox.ui.components.StatusBadge
 fun HomeScreen(
     state: MainUiState,
     onServiceToggle: (Boolean) -> Unit,
-    onFeatureToggle: (OverlayType, Boolean) -> Unit,
     onDismissError: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -47,7 +40,7 @@ fun HomeScreen(
         item {
             ScreenHeader(
                 title = "屏幕工具箱",
-                subtitle = "集中管理当前屏幕与所有系统悬浮窗",
+                subtitle = "集中管理服务状态与前台应用规则",
             )
         }
         state.runtime.lastError?.let { error ->
@@ -88,7 +81,22 @@ fun HomeScreen(
                     state.runtime.foregroundPackage?.let {
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = if (ruleControls) "应用规则正在控制当前配置" else "前台应用：$it",
+                            text = when {
+                                state.runtime.matchedRulePackage == GLOBAL_RULE_PACKAGE ->
+                                    "全局规则正在生效"
+
+                                ruleControls -> "应用规则正在控制当前配置"
+                                else -> "前台应用：$it"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    state.runtime.temporaryUnlockUntilEpochMs?.let { until ->
+                        Spacer(Modifier.height(8.dp))
+                        val seconds = ((until - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
+                        Text(
+                            text = "防误触临时解除中，约 $seconds 秒后恢复",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -96,73 +104,5 @@ fun HomeScreen(
                 }
             }
         }
-        item {
-            FeatureToggle(
-                title = "防烧屏",
-                description = "${countType(state, OverlayType.BURN_MASK)} 个遮罩",
-                icon = Icons.Outlined.BorderClear,
-                checked = state.settings.burnMaskGloballyEnabled,
-                enabled = !ruleControls,
-                onCheckedChange = { onFeatureToggle(OverlayType.BURN_MASK, it) },
-            )
-        }
-        item {
-            FeatureToggle(
-                title = "防误触",
-                description = temporaryUnlockText(state),
-                icon = Icons.Outlined.Layers,
-                checked = state.settings.touchBlockGloballyEnabled,
-                enabled = !ruleControls,
-                onCheckedChange = { onFeatureToggle(OverlayType.TOUCH_BLOCK, it) },
-            )
-        }
-        item {
-            FeatureToggle(
-                title = "全局水印",
-                description = "${countType(state, OverlayType.WATERMARK)} 个水印",
-                icon = Icons.Outlined.WaterDrop,
-                checked = state.settings.watermarkGloballyEnabled,
-                enabled = !ruleControls,
-                onCheckedChange = { onFeatureToggle(OverlayType.WATERMARK, it) },
-            )
-        }
     }
-}
-
-@Composable
-private fun FeatureToggle(
-    title: String,
-    description: String,
-    icon: ImageVector,
-    checked: Boolean,
-    enabled: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    InfoCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
-        }
-    }
-}
-
-private fun countType(state: MainUiState, type: OverlayType): Int =
-    state.overlays.count { it.type == type }
-
-private fun temporaryUnlockText(state: MainUiState): String {
-    val until = state.runtime.temporaryUnlockUntilEpochMs ?: return "触摸拦截区域"
-    val seconds = ((until - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
-    return "临时解除中，约 $seconds 秒后恢复"
 }

@@ -45,10 +45,6 @@ class OverlayRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun setEnabled(id: String, enabled: Boolean) {
-        dao.updateEnabled(id, enabled, System.currentTimeMillis())
-    }
-
     override suspend fun delete(id: String) {
         dao.delete(id)
     }
