@@ -165,6 +165,22 @@ class OverlayService : Service() {
 
                     OverlayCommand.TemporaryUnlock -> beginTemporaryUnlock()
                     OverlayCommand.EndTemporaryUnlock -> endTemporaryUnlock()
+                    OverlayCommand.AccessibilityHostChanged -> {
+                        val editorConfig = previewConfig?.takeIf {
+                            it.type == OverlayType.BURN_MASK ||
+                                it.type == OverlayType.TOUCH_BLOCK
+                        }
+                        reconcile()
+                        val canRestoreEditor = editorConfig?.type != OverlayType.BURN_MASK ||
+                            permissionManager.canUseAccessibilityOverlay()
+                        if (editorConfig != null &&
+                            !overlayManager.isEditorPanelVisible() &&
+                            canRestoreEditor
+                        ) {
+                            startRegionEditor(editorConfig)
+                        }
+                        log("ACCESSIBILITY_HOST_CHANGED")
+                    }
                 }
             }
         }

@@ -196,6 +196,9 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
                     onOverlayPermission = {
                         context.startActivity(viewModel.overlaySettingsIntent())
                     },
+                    onAccessibilityPermission = {
+                        context.startActivity(viewModel.accessibilitySettingsIntent())
+                    },
                     onUsagePermission = {
                         context.startActivity(viewModel.usageAccessIntent())
                     },

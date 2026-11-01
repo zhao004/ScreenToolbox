@@ -348,19 +348,6 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
     private fun addBurnControls(parent: LinearLayout, config: BurnMaskConfig) {
         parent.addView(
             createSliderField(
-                label = "透明度",
-                initial = config.alpha.times(100).roundToInt(),
-                min = 0,
-                max = 100,
-                unit = "%",
-            ) { value ->
-                updateBurnConfig { burn ->
-                    burn.copy(alpha = value.coerceIn(0, 100) / 100f)
-                }
-            },
-        )
-        parent.addView(
-            createSliderField(
                 label = "圆角",
                 initial = config.cornerRadiusDp.roundToInt(),
                 min = 0,

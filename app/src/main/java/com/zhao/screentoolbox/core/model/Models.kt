@@ -80,7 +80,6 @@ data class BurnMaskConfig(
     override val enabled: Boolean,
     override val rect: NormalizedRect,
     val colorArgb: Long = 0xFF000000,
-    val alpha: Float = 1f,
     val cornerRadiusDp: Float = 12f,
 ) : OverlayConfig {
     override val type: OverlayType = OverlayType.BURN_MASK
@@ -153,6 +152,7 @@ data class AppSettings(
 
 data class PermissionSnapshot(
     val overlayGranted: Boolean = false,
+    val accessibilityGranted: Boolean = false,
     val usageAccessGranted: Boolean = false,
     val notificationGranted: Boolean = false,
 )

@@ -5,6 +5,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.HorizontalScrollView
+import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -54,6 +55,11 @@ class OverlayEditorPanelViewTest {
         assertEquals("拖动编辑面板", header.getChildAt(0).contentDescription)
         assertTrue(swatches.size >= 8)
         assertNotNull(findViews(panel) { it is HorizontalScrollView }.firstOrNull())
+        assertFalse(
+            findViews(panel) { it is TextView }
+                .filterIsInstance<TextView>()
+                .any { it.text == "透明度" },
+        )
         val black = swatches.first { it.tag.toString() == "color-swatch:FF000000" }
         val red = swatches.first { it.tag.toString() == "color-swatch:FFEF4444" }
         assertTrue(black.isSelected)

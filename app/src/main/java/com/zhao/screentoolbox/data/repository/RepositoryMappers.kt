@@ -16,20 +16,26 @@ import com.zhao.screentoolbox.data.database.OverlayRegionEntity
 import com.zhao.screentoolbox.data.database.TouchBlockStyleEntity
 import com.zhao.screentoolbox.data.database.WatermarkStyleEntity
 
+private const val OPAQUE_BURN_MASK_ALPHA = 1f
+
 internal fun OverlayConfigWithDetails.toDomain(): OverlayConfig {
     val geometry = region?.let {
         NormalizedRect(it.xRatio, it.yRatio, it.widthRatio, it.heightRatio).sanitized()
     } ?: NormalizedRect.FullScreen
     return when (config.type) {
         OverlayType.BURN_MASK -> {
-            val style = burnStyle ?: BurnMaskStyleEntity(config.id, 0xFF000000, 1f, 12f)
+            val style = burnStyle ?: BurnMaskStyleEntity(
+                config.id,
+                0xFF000000,
+                OPAQUE_BURN_MASK_ALPHA,
+                12f,
+            )
             BurnMaskConfig(
                 id = config.id,
                 name = config.name,
                 enabled = config.enabled,
                 rect = geometry,
                 colorArgb = style.colorArgb,
-                alpha = style.alpha,
                 cornerRadiusDp = style.cornerRadiusDp,
             )
         }
@@ -127,7 +133,12 @@ internal fun OverlayConfig.toEntityParts(
         is BurnMaskConfig -> OverlayEntityParts(
             config = common,
             region = region,
-            burnStyle = BurnMaskStyleEntity(id, colorArgb, alpha.coerceIn(0f, 1f), cornerRadiusDp.coerceAtLeast(0f)),
+            burnStyle = BurnMaskStyleEntity(
+                id,
+                colorArgb,
+                OPAQUE_BURN_MASK_ALPHA,
+                cornerRadiusDp.coerceAtLeast(0f),
+            ),
         )
 
         is TouchBlockConfig -> OverlayEntityParts(

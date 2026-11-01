@@ -54,6 +54,11 @@ data class OverlayRegionEntity(
         ),
     ],
 )
+/**
+ * 防烧屏样式。
+ *
+ * `alpha` 是 v1 数据库的兼容字段：当前遮罩固定完全不透明，读写时统一归一化为 1f。
+ */
 data class BurnMaskStyleEntity(
     @PrimaryKey val configId: String,
     val colorArgb: Long,

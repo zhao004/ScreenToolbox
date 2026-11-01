@@ -6,4 +6,6 @@
     <string name="notification_text">已启用 %1$d 个悬浮窗</string>
     <string name="notification_action_unlock">临时解除防误触</string>
     <string name="notification_action_stop">关闭全部</string>
+    <string name="accessibility_service_label">防烧屏悬浮层</string>
+    <string name="accessibility_service_description">用于创建完全不透明且允许触摸穿透的防烧屏遮罩，不读取屏幕内容。</string>
 </resources>

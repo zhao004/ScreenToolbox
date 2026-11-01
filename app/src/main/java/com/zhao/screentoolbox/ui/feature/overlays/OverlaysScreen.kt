@@ -306,7 +306,7 @@ private fun typeIcon(type: OverlayType): ImageVector = when (type) {
 }
 
 private fun configSummary(config: OverlayConfig): String = when (config) {
-    is BurnMaskConfig -> "透明度 ${(config.alpha * 100).toInt()}%"
+    is BurnMaskConfig -> "完全遮挡 · 点击穿透 · 圆角 ${config.cornerRadiusDp.toInt()}dp"
     is TouchBlockConfig -> "${(config.rect.width * 100).toInt()} × ${(config.rect.height * 100).toInt()}%"
     is WatermarkConfig -> if (config.text.length > 12) config.text.take(12) + "…" else config.text
 }

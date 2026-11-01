@@ -1,6 +1,7 @@
 package com.zhao.screentoolbox.system.permission
 
 import android.Manifest
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
@@ -9,8 +10,10 @@ import android.net.Uri
 import android.os.Build
 import android.os.Process
 import android.provider.Settings
+import android.view.accessibility.AccessibilityManager
 import androidx.core.content.ContextCompat
 import com.zhao.screentoolbox.core.model.PermissionSnapshot
+import com.zhao.screentoolbox.overlay.accessibility.OverlayAccessibilityService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,11 +25,24 @@ class PermissionManager @Inject constructor(
 ) {
     fun snapshot(): PermissionSnapshot = PermissionSnapshot(
         overlayGranted = canDrawOverlays(),
+        accessibilityGranted = canUseAccessibilityOverlay(),
         usageAccessGranted = hasUsageAccess(),
         notificationGranted = canPostNotifications(),
     )
 
     fun canDrawOverlays(): Boolean = Settings.canDrawOverlays(context)
+
+    fun canUseAccessibilityOverlay(): Boolean {
+        val accessibilityManager = context.getSystemService(AccessibilityManager::class.java)
+            ?: return false
+        return accessibilityManager
+            .getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            .any { service ->
+                val serviceInfo = service.resolveInfo.serviceInfo
+                serviceInfo.packageName == context.packageName &&
+                    serviceInfo.name == OverlayAccessibilityService::class.java.name
+            }
+    }
 
     fun hasUsageAccess(): Boolean {
         val appOps = context.getSystemService(AppOpsManager::class.java) ?: return false
@@ -50,6 +66,8 @@ class PermissionManager @Inject constructor(
         Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
         Uri.parse("package:${context.packageName}"),
     )
+
+    fun accessibilitySettingsIntent(): Intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
 
     fun usageAccessSettingsIntent(): Intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
 }

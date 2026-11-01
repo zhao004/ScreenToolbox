@@ -1,7 +1,5 @@
 package com.zhao.screentoolbox.overlay
 
-import android.view.View
-import android.view.WindowManager
 import com.zhao.screentoolbox.core.model.OverlayConfig
 import com.zhao.screentoolbox.core.model.OverlayType
 import javax.inject.Inject
@@ -21,18 +19,13 @@ interface OverlayController {
     fun removeAll()
 }
 
-data class OverlayEntry(
-    val view: View,
-    val params: WindowManager.LayoutParams,
-    var config: OverlayConfig,
-)
-
 sealed interface OverlayCommand {
     data class Preview(val config: OverlayConfig) : OverlayCommand
     data class StartRegionEditor(val config: OverlayConfig) : OverlayCommand
     data object EndPreview : OverlayCommand
     data object TemporaryUnlock : OverlayCommand
     data object EndTemporaryUnlock : OverlayCommand
+    data object AccessibilityHostChanged : OverlayCommand
 }
 
 /**

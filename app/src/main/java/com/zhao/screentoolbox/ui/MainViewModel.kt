@@ -267,6 +267,12 @@ class MainViewModel @Inject constructor(
             messages.trySend("请先授权悬浮窗权限后再$operation")
             return
         }
+        if (config.type == OverlayType.BURN_MASK &&
+            !permissionManager.canUseAccessibilityOverlay()
+        ) {
+            messages.trySend("请先在设置中启用无障碍服务后再${operation}防烧屏遮罩")
+            return
+        }
         if (!uiState.value.runtime.serviceRunning) {
             runCatching { OverlayService.start(context) }
                 .onFailure {
@@ -288,6 +294,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun overlaySettingsIntent(): Intent = permissionManager.overlaySettingsIntent()
+    fun accessibilitySettingsIntent(): Intent = permissionManager.accessibilitySettingsIntent()
     fun usageAccessIntent(): Intent = permissionManager.usageAccessSettingsIntent()
 
     private data class PartialState(

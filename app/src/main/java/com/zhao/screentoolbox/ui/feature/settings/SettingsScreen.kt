@@ -42,6 +42,7 @@ fun SettingsScreen(
     onAutoAssociationToggle: (Boolean) -> Unit,
     onBootToggle: (Boolean) -> Unit,
     onOverlayPermission: () -> Unit,
+    onAccessibilityPermission: () -> Unit,
     onUsagePermission: () -> Unit,
     onNotificationPermission: () -> Unit,
     onTemporaryUnlock: () -> Unit,
@@ -61,6 +62,11 @@ fun SettingsScreen(
                     Text("系统权限", style = MaterialTheme.typography.titleLarge)
                     HorizontalDivider(Modifier.padding(vertical = 8.dp))
                     PermissionRow("悬浮窗", state.permissions.overlayGranted, onOverlayPermission)
+                    PermissionRow(
+                        "无障碍服务（防烧屏穿透）",
+                        state.permissions.accessibilityGranted,
+                        onAccessibilityPermission,
+                    )
                     PermissionRow("使用情况访问", state.permissions.usageAccessGranted, onUsagePermission)
                     PermissionRow("通知", state.permissions.notificationGranted, onNotificationPermission)
                 }
