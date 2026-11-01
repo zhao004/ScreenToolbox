@@ -2,28 +2,35 @@ package com.zhao.screentoolbox.overlay.editor
 
 import android.content.Context
 import android.content.res.ColorStateList
-import android.graphics.Color
+import android.content.res.Configuration
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.text.InputFilter
+import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.CheckBox
+import android.widget.EditText
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
+import androidx.core.widget.doAfterTextChanged
 import com.zhao.screentoolbox.R
 import com.zhao.screentoolbox.core.model.BurnMaskConfig
 import com.zhao.screentoolbox.core.model.NormalizedRect
 import com.zhao.screentoolbox.core.model.OverlayConfig
 import com.zhao.screentoolbox.core.model.TouchBlockConfig
 import com.zhao.screentoolbox.overlay.common.ScreenDrag
+import com.zhao.screentoolbox.overlay.common.isNightMode
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
@@ -35,6 +42,8 @@ import kotlin.math.roundToInt
 class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
     private val density = resources.displayMetrics.density
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+    private var isDarkMode = context.isNightMode()
+    private var palette = resolveOverlayEditorPalette(isDarkMode)
     private var currentConfig: OverlayConfig? = null
     private var onConfigChanged: ((OverlayConfig) -> Unit)? = null
     private var onSave: (() -> Unit)? = null
@@ -119,20 +128,23 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
 
     /** 切换为仅显示圆图标的最小化形态。 */
     fun showMinimized() {
+        findFocus()?.let(::hideKeyboard)
+        clearFocus()
         minimized = true
         removeAllViews()
         setPadding(0, 0, 0, 0)
         gravity = Gravity.CENTER
         background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setColor(Color.rgb(37, 99, 235))
-            setStroke(dp(2), Color.rgb(147, 197, 253))
+            setColor(palette.primary)
+            setStroke(dp(2), palette.outline)
         }
         isClickable = true
         contentDescription = "展开编辑面板"
         addView(
             ImageView(context).apply {
                 setImageResource(R.drawable.ic_notification)
+                imageTintList = ColorStateList.valueOf(palette.onPrimary)
                 scaleType = ImageView.ScaleType.CENTER_INSIDE
                 isClickable = false
                 importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
@@ -156,6 +168,21 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
 
     fun isMinimized(): Boolean = minimized
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        val nextDarkMode = newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+            Configuration.UI_MODE_NIGHT_YES
+        if (nextDarkMode == isDarkMode) return
+
+        isDarkMode = nextDarkMode
+        palette = resolveOverlayEditorPalette(isDarkMode)
+        if (minimized) {
+            showMinimized()
+        } else {
+            currentConfig?.let(::rebuildExpandedContent)
+        }
+    }
+
     private fun rebuildExpandedContent(config: OverlayConfig) {
         removeAllViews()
         widthSlider = null
@@ -167,9 +194,9 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
         colorSwatches.clear()
         setPadding(dp(14), dp(12), dp(14), dp(12))
         background = GradientDrawable().apply {
-            setColor(Color.argb(246, 15, 23, 42))
+            setColor(palette.container)
             cornerRadius = dp(16).toFloat()
-            setStroke(dp(1), Color.rgb(71, 85, 105))
+            setStroke(dp(1), palette.containerBorder)
         }
         addView(createHeader(if (config is BurnMaskConfig) "防烧屏编辑" else "防误触编辑"))
         addView(createDivider())
@@ -178,6 +205,7 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
             orientation = VERTICAL
             setPadding(0, 0, 0, dp(4))
         }
+        controls.addView(createNameField(config.name))
         controls.addView(createSizeField("宽度", config.rect.width, isWidth = true))
         controls.addView(createSizeField("高度", config.rect.height, isWidth = false))
         when (config) {
@@ -204,19 +232,62 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
         return LinearLayout(context).apply {
             gravity = Gravity.CENTER_VERTICAL
             orientation = HORIZONTAL
+            addView(createDragImage())
             addView(
-                textView(title, 17f, Color.WHITE).apply {
+                textView(title, 17f, palette.title).apply {
                     setTypeface(typeface, Typeface.BOLD)
                 },
-                LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f),
+                LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginStart = dp(8)
+                },
             )
-            addView(createDragImage())
             addView(
                 imageView(R.drawable.ic_panel_minimize, "缩小编辑面板").apply {
                     setOnClickListener { onMinimize?.invoke() }
                 },
                 LayoutParams(dp(40), dp(40)).apply {
                     marginStart = dp(4)
+                },
+            )
+        }
+    }
+
+    private fun createNameField(name: String): View {
+        val input = EditText(context).apply {
+            setText(name)
+            hint = "例如：视频防烧屏"
+            setSingleLine(true)
+            inputType = InputType.TYPE_CLASS_TEXT
+            filters = arrayOf(InputFilter.LengthFilter(MAX_RULE_NAME_LENGTH))
+            imeOptions = EditorInfo.IME_ACTION_DONE
+            setTextColor(palette.title)
+            setHintTextColor(palette.body)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            setPadding(dp(12), 0, dp(12), 0)
+            background = GradientDrawable().apply {
+                setColor(palette.neutralContainer)
+                cornerRadius = dp(10).toFloat()
+                setStroke(dp(1), palette.outline)
+            }
+            setOnEditorActionListener { view, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_DONE) {
+                    hideKeyboard(view)
+                    view.clearFocus()
+                    true
+                } else {
+                    false
+                }
+            }
+            doAfterTextChanged { updateConfigName(it?.toString().orEmpty()) }
+        }
+        return LinearLayout(context).apply {
+            orientation = VERTICAL
+            setPadding(0, dp(4), 0, dp(4))
+            addView(textView("名称", 14f, palette.title))
+            addView(
+                input,
+                LayoutParams(LayoutParams.MATCH_PARENT, dp(44)).apply {
+                    topMargin = dp(4)
                 },
             )
         }
@@ -232,10 +303,10 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
     }
 
     private fun createSizeField(label: String, ratio: Float, isWidth: Boolean): View {
-        val valueText = textView("", 13f, Color.rgb(203, 213, 225))
+        val valueText = textView("", 13f, palette.body)
         val seekBar = createStyledSeekBar().apply {
-            progressTintList = ColorStateList.valueOf(Color.rgb(37, 99, 235))
-            thumbTintList = ColorStateList.valueOf(Color.rgb(147, 197, 253))
+            progressTintList = ColorStateList.valueOf(palette.primary)
+            thumbTintList = ColorStateList.valueOf(palette.primary)
             setOnSeekBarChangeListener(
                 object : SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
@@ -264,7 +335,7 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
                     orientation = HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     addView(
-                        textView(label, 14f, Color.WHITE),
+                        textView(label, 14f, palette.title),
                         LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f),
                     )
                     addView(valueText)
@@ -308,9 +379,9 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
         parent.addView(
             CheckBox(context).apply {
                 text = "显示区域边界"
-                setTextColor(Color.WHITE)
+                setTextColor(palette.title)
                 textSize = 14f
-                buttonTintList = ColorStateList.valueOf(Color.rgb(96, 165, 250))
+                buttonTintList = ColorStateList.valueOf(palette.primary)
                 isChecked = config.boundaryVisible
                 setOnCheckedChangeListener { _, checked ->
                     updateTouchConfig { touch -> touch.copy(boundaryVisible = checked) }
@@ -373,7 +444,7 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
         unit: String,
         onValue: (Int) -> Unit,
     ): View {
-        val valueText = textView("$initial$unit", 13f, Color.rgb(203, 213, 225))
+        val valueText = textView("$initial$unit", 13f, palette.body)
         return LinearLayout(context).apply {
             orientation = VERTICAL
             setPadding(0, dp(2), 0, 0)
@@ -382,7 +453,7 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
                     orientation = HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     addView(
-                        textView(label, 14f, Color.WHITE),
+                        textView(label, 14f, palette.title),
                         LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f),
                     )
                     addView(valueText)
@@ -392,8 +463,8 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
                 createStyledSeekBar().apply {
                     this.max = max - min
                     progress = initial - min
-                    progressTintList = ColorStateList.valueOf(Color.rgb(37, 99, 235))
-                    thumbTintList = ColorStateList.valueOf(Color.rgb(147, 197, 253))
+                    progressTintList = ColorStateList.valueOf(palette.primary)
+                    thumbTintList = ColorStateList.valueOf(palette.primary)
                     setOnSeekBarChangeListener(
                         object : SeekBar.OnSeekBarChangeListener {
                             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
@@ -422,11 +493,11 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
 
     private fun createColorField(initialColor: Long): View {
         colorSwatches.clear()
-        val selectedValue = textView("", 12f, Color.rgb(203, 213, 225)).apply {
+        val selectedValue = textView("", 12f, palette.body).apply {
             typeface = Typeface.MONOSPACE
         }
         colorValueLabel = selectedValue
-        val palette = LinearLayout(context).apply {
+        val swatchRow = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
@@ -437,7 +508,7 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
                 setOnClickListener { selectBurnColor(color) }
             }
             colorSwatches[color] = swatch
-            palette.addView(
+            swatchRow.addView(
                 swatch,
                 LayoutParams(dp(36), dp(32)).apply {
                     if (index > 0) marginStart = dp(6)
@@ -449,7 +520,7 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
             overScrollMode = OVER_SCROLL_ALWAYS
             clipToPadding = false
             addView(
-                palette,
+                swatchRow,
                 LayoutParams(LayoutParams.WRAP_CONTENT, dp(36)),
             )
         }
@@ -463,7 +534,7 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
                     orientation = HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     addView(
-                        textView("颜色", 14f, Color.WHITE),
+                        textView("颜色", 14f, palette.title),
                         LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f),
                     )
                     addView(selectedValue)
@@ -492,7 +563,7 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
                 cornerRadius = dp(7).toFloat()
                 setStroke(
                     dp(if (selected) 3 else 1),
-                    if (selected) Color.rgb(191, 219, 254) else Color.rgb(100, 116, 139),
+                    if (selected) palette.primary else palette.outline,
                 )
             }
         }
@@ -511,23 +582,39 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
             orientation = HORIZONTAL
             setPadding(0, dp(8), 0, 0)
             addView(
-                actionButton("取消", Color.rgb(71, 85, 105)) { onCancel?.invoke() },
+                actionButton(
+                    text = "取消",
+                    containerColor = palette.neutralContainer,
+                    contentColor = palette.onNeutralContainer,
+                ) {
+                    findFocus()?.let(::hideKeyboard)
+                    onCancel?.invoke()
+                },
                 LayoutParams(0, dp(42), 1f).apply { marginEnd = dp(8) },
             )
             addView(
-                actionButton("保存", Color.rgb(37, 99, 235)) { onSave?.invoke() },
+                actionButton(
+                    text = "保存",
+                    containerColor = palette.primary,
+                    contentColor = palette.onPrimary,
+                ) { saveCurrentConfig() },
                 LayoutParams(0, dp(42), 1f).apply { marginStart = dp(8) },
             )
         }
     }
 
-    private fun actionButton(text: String, color: Int, action: () -> Unit): Button {
+    private fun actionButton(
+        text: String,
+        containerColor: Int,
+        contentColor: Int,
+        action: () -> Unit,
+    ): Button {
         return Button(context).apply {
             this.text = text
             isAllCaps = false
             textSize = 14f
-            setTextColor(Color.WHITE)
-            backgroundTintList = ColorStateList.valueOf(color)
+            setTextColor(contentColor)
+            backgroundTintList = ColorStateList.valueOf(containerColor)
             minimumHeight = 0
             setPadding(dp(12), 0, dp(12), 0)
             setOnClickListener { action() }
@@ -536,7 +623,7 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
 
     private fun createDivider(): View {
         return View(context).apply {
-            setBackgroundColor(Color.rgb(51, 65, 85))
+            setBackgroundColor(palette.outlineVariant)
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dp(1)).apply {
                 topMargin = dp(8)
                 bottomMargin = dp(2)
@@ -553,6 +640,26 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
         val updated = (currentConfig as? BurnMaskConfig)?.let(transform) ?: return
         currentConfig = updated
         onConfigChanged?.invoke(updated)
+    }
+
+    private fun updateConfigName(name: String) {
+        val updated = when (val config = currentConfig) {
+            is BurnMaskConfig -> config.copy(name = name)
+            is TouchBlockConfig -> config.copy(name = name)
+            else -> return
+        }
+        currentConfig = updated
+        onConfigChanged?.invoke(updated)
+    }
+
+    private fun saveCurrentConfig() {
+        val config = currentConfig ?: return
+        val normalizedName = config.name.trim().ifBlank { defaultName(config) }
+        if (normalizedName != config.name) {
+            updateConfigName(normalizedName)
+        }
+        findFocus()?.let(::hideKeyboard)
+        onSave?.invoke()
     }
 
     private fun updateTouchConfig(transform: (TouchBlockConfig) -> TouchBlockConfig) {
@@ -678,11 +785,12 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
     private fun imageView(resourceId: Int, description: String): ImageView {
         return ImageView(context).apply {
             setImageResource(resourceId)
+            imageTintList = ColorStateList.valueOf(palette.onPrimaryContainer)
             scaleType = ImageView.ScaleType.CENTER
             contentDescription = description
             setPadding(dp(8), dp(8), dp(8), dp(8))
             background = GradientDrawable().apply {
-                setColor(Color.argb(90, 37, 99, 235))
+                setColor(palette.primaryContainer)
                 cornerRadius = dp(10).toFloat()
             }
         }
@@ -696,10 +804,23 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
         }
     }
 
+    private fun hideKeyboard(view: View) {
+        val inputMethodManager = context.getSystemService(Context.INPUT_METHOD_SERVICE)
+            as? InputMethodManager
+        inputMethodManager?.hideSoftInputFromWindow(view.windowToken, 0)
+    }
+
+    private fun defaultName(config: OverlayConfig): String = when (config) {
+        is BurnMaskConfig -> "防烧屏遮罩"
+        is TouchBlockConfig -> "防误触区域"
+        else -> "悬浮窗配置"
+    }
+
     private fun dp(value: Int): Int = (value * density).roundToInt()
 
     private companion object {
         const val MIN_SIZE_PERCENT = 1
+        const val MAX_RULE_NAME_LENGTH = 40
         val COLOR_PRESETS = listOf(
             0xFF000000,
             0xFF1F2937,

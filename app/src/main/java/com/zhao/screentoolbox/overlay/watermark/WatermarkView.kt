@@ -1,6 +1,7 @@
 package com.zhao.screentoolbox.overlay.watermark
 
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -8,8 +9,10 @@ import android.graphics.Typeface
 import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.View
+import androidx.core.graphics.ColorUtils
 import com.zhao.screentoolbox.core.model.WatermarkConfig
 import com.zhao.screentoolbox.core.model.WatermarkMode
+import com.zhao.screentoolbox.overlay.common.overlayPrimaryColor
 import kotlin.math.max
 
 /** 水印使用 Canvas 绘制，避免把系统窗口与 Compose 生命周期耦合。 */
@@ -18,6 +21,7 @@ class WatermarkView(context: Context) : View(context) {
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.LEFT
     }
+    private val dragIndicatorPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private var config: WatermarkConfig? = null
     private var editable = false
     private var dragX = 0f
@@ -54,15 +58,22 @@ class WatermarkView(context: Context) : View(context) {
         }
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        invalidate()
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val current = config ?: return
         if (current.text.isBlank()) return
         textPaint.alpha = 255
         if (editable && current.mode == WatermarkMode.SINGLE) {
-            canvas.drawCircle(dragX, dragY, 8f * density, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.argb(120, 37, 99, 235)
-            })
+            dragIndicatorPaint.color = ColorUtils.setAlphaComponent(
+                context.overlayPrimaryColor(),
+                120,
+            )
+            canvas.drawCircle(dragX, dragY, 8f * density, dragIndicatorPaint)
         }
         canvas.save()
         when (current.mode) {

@@ -215,14 +215,8 @@ class MainViewModel @Inject constructor(
     fun saveRule(rule: AppRule) {
         viewModelScope.launch {
             runCatching { appRuleRepository.save(rule) }
-                .onSuccess { messages.send("应用规则已保存") }
+                .onSuccess { messages.send("应用规则保存成功") }
                 .onFailure { messages.send("保存应用规则失败") }
-        }
-    }
-
-    fun deleteRule(id: Long) {
-        viewModelScope.launch {
-            appRuleRepository.delete(id)
         }
     }
 

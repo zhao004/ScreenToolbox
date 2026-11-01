@@ -1,6 +1,7 @@
 package com.zhao.screentoolbox.ui.feature.overlays
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,8 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -116,11 +116,6 @@ fun WatermarkEditorScreen(
                 draft = draft.copy(positionYRatio = it)
             }
         }
-        Text(
-            "水印窗口不接收触摸，以保持下方应用可操作。Android 12 及以上会把非触摸窗口的有效不透明度限制在 80%。",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
@@ -142,7 +137,7 @@ private fun EditorFrame(
             },
             actions = {
                 IconButton(onClick = onSave) {
-                    Icon(Icons.Outlined.Check, contentDescription = "保存")
+                    Icon(Icons.Outlined.Save, contentDescription = "保存")
                 }
             },
         )
@@ -155,9 +150,6 @@ private fun EditorFrame(
         ) {
             content()
             Spacer(Modifier.height(24.dp))
-            Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
-                Text("保存配置")
-            }
         }
     }
 }
@@ -219,10 +211,20 @@ private fun ColorField(colorArgb: Long, onColor: (Long) -> Unit) {
             Text("颜色", style = MaterialTheme.typography.titleMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 presets.forEach { color ->
+                    val selected = color == colorArgb
                     Box(
                         modifier = Modifier
                             .size(32.dp)
                             .background(Color(color.toInt()), CircleShape)
+                            .border(
+                                width = if (selected) 2.dp else 1.dp,
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.outline
+                                },
+                                shape = CircleShape,
+                            )
                             .clickable { onColor(color) },
                     )
                 }

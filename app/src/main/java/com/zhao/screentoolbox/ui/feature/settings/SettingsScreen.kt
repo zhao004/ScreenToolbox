@@ -35,7 +35,6 @@ import com.zhao.screentoolbox.ui.MainUiState
 import com.zhao.screentoolbox.ui.components.InfoCard
 import com.zhao.screentoolbox.ui.components.PermissionRow
 import com.zhao.screentoolbox.ui.components.ScreenHeader
-import com.zhao.screentoolbox.ui.theme.DangerRed
 
 @Composable
 fun SettingsScreen(
@@ -106,7 +105,10 @@ fun SettingsScreen(
                         }
                         Button(
                             onClick = { confirmStop = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError,
+                            ),
                             modifier = Modifier.weight(1f),
                         ) {
                             Icon(Icons.Outlined.PowerSettingsNew, contentDescription = null)

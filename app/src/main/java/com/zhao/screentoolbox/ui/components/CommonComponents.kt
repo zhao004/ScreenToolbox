@@ -27,9 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.zhao.screentoolbox.ui.theme.DangerRed
-import com.zhao.screentoolbox.ui.theme.SuccessGreen
-import com.zhao.screentoolbox.ui.theme.WarningAmber
+import com.zhao.screentoolbox.ui.theme.appSemanticColors
 
 @Composable
 fun ScreenHeader(
@@ -59,14 +57,16 @@ fun StatusBadge(
     modifier: Modifier = Modifier,
     warning: Boolean = false,
 ) {
-    val color = when {
-        warning -> WarningAmber
-        active -> SuccessGreen
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    val semanticColors = MaterialTheme.appSemanticColors
+    val (containerColor, contentColor) = when {
+        warning -> semanticColors.warningContainer to semanticColors.onWarningContainer
+        active -> semanticColors.successContainer to semanticColors.onSuccessContainer
+        else -> MaterialTheme.colorScheme.surfaceContainerHighest to
+            MaterialTheme.colorScheme.onSurfaceVariant
     }
     Row(
         modifier = modifier
-            .background(color.copy(alpha = 0.12f), RoundedCornerShape(999.dp))
+            .background(containerColor, RoundedCornerShape(999.dp))
             .padding(horizontal = 10.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp),
@@ -74,12 +74,12 @@ fun StatusBadge(
         Box(
             Modifier
                 .size(7.dp)
-                .background(color, CircleShape),
+                .background(contentColor, CircleShape),
         )
         Text(
             text = text,
             style = MaterialTheme.typography.labelLarge,
-            color = color,
+            color = contentColor,
             fontWeight = FontWeight.Medium,
         )
     }
@@ -102,7 +102,11 @@ fun PermissionRow(
         Icon(
             imageVector = if (granted) Icons.Outlined.CheckCircle else Icons.Outlined.WarningAmber,
             contentDescription = null,
-            tint = if (granted) SuccessGreen else WarningAmber,
+            tint = if (granted) {
+                MaterialTheme.appSemanticColors.success
+            } else {
+                MaterialTheme.appSemanticColors.warning
+            },
             modifier = Modifier.size(21.dp),
         )
         Column(Modifier.weight(1f)) {
@@ -139,21 +143,30 @@ fun InfoCard(
 
 @Composable
 fun ErrorBanner(text: String, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    val errorContainer = MaterialTheme.colorScheme.errorContainer
+    val onErrorContainer = MaterialTheme.colorScheme.onErrorContainer
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = DangerRed.copy(alpha = 0.1f)),
+        colors = CardDefaults.cardColors(
+            containerColor = errorContainer,
+            contentColor = onErrorContainer,
+        ),
     ) {
         Row(
             Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Icon(Icons.Outlined.WarningAmber, contentDescription = null, tint = DangerRed)
+            Icon(
+                Icons.Outlined.WarningAmber,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+            )
             Text(
                 text = text,
                 modifier = Modifier.weight(1f),
-                color = DangerRed,
+                color = onErrorContainer,
                 style = MaterialTheme.typography.bodyMedium,
             )
             Button(onClick = onDismiss) { Text("知道了") }

@@ -2,6 +2,7 @@ package com.zhao.screentoolbox.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -20,5 +21,7 @@ class MainNavigationTest {
         composeRule.onNodeWithText("屏幕工具箱").assertIsDisplayed()
         composeRule.onNodeWithText("悬浮窗").performClick()
         composeRule.onNodeWithText("创建、编辑并控制独立的系统窗口").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("新建防烧屏遮罩").assertIsDisplayed()
+        composeRule.onNodeWithText("新建防烧屏遮罩").assertDoesNotExist()
     }
 }

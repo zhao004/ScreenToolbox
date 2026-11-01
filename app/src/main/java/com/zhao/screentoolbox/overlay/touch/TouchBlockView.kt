@@ -1,12 +1,14 @@
 package com.zhao.screentoolbox.overlay.touch
 
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import androidx.core.graphics.ColorUtils
 import com.zhao.screentoolbox.core.model.TouchBlockConfig
 import com.zhao.screentoolbox.overlay.common.RegionEditView
+import com.zhao.screentoolbox.overlay.common.overlayPrimaryColor
 
 /** 有效防误触窗口保持透明，仅编辑态和可选边界提示可见。 */
 class TouchBlockView(context: Context) : RegionEditView(context) {
@@ -14,16 +16,31 @@ class TouchBlockView(context: Context) : RegionEditView(context) {
     private val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = density
-        color = Color.argb(180, 37, 99, 235)
     }
     private var showBoundary = true
+    private var currentConfig: TouchBlockConfig? = null
+    private var currentEditable = false
 
     fun bind(config: TouchBlockConfig, editable: Boolean) {
-        this.editable = editable
+        currentConfig = config
+        currentEditable = editable
+        applyTheme()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        applyTheme()
+    }
+
+    private fun applyTheme() {
+        val config = currentConfig ?: return
+        editable = currentEditable
         showBoundary = config.boundaryVisible
+        val accent = context.overlayPrimaryColor()
+        hintPaint.color = ColorUtils.setAlphaComponent(accent, 180)
         configurePaint(
-            fillColor = Color.argb(28, 37, 99, 235),
-            borderColor = Color.rgb(37, 99, 235),
+            fillColor = ColorUtils.setAlphaComponent(accent, 28),
+            borderColor = accent,
             cornerRadiusDp = 8f,
         )
     }

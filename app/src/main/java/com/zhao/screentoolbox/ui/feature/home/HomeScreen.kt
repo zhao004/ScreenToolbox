@@ -29,7 +29,6 @@ import com.zhao.screentoolbox.ui.components.ErrorBanner
 import com.zhao.screentoolbox.ui.components.InfoCard
 import com.zhao.screentoolbox.ui.components.ScreenHeader
 import com.zhao.screentoolbox.ui.components.StatusBadge
-import com.zhao.screentoolbox.ui.theme.BrandBlue
 
 @Composable
 fun HomeScreen(
@@ -55,7 +54,7 @@ fun HomeScreen(
             item { ErrorBanner(text = error, onDismiss = onDismissError) }
         }
         item {
-            InfoCard(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)) {
+            InfoCard(containerColor = MaterialTheme.colorScheme.primaryContainer) {
                 Column {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -145,7 +144,7 @@ private fun FeatureToggle(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(icon, contentDescription = null, tint = BrandBlue)
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium)
                 Text(

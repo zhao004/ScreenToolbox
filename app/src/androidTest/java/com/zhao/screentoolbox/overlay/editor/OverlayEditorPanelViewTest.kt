@@ -3,6 +3,7 @@ package com.zhao.screentoolbox.overlay.editor
 import android.content.Context
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.HorizontalScrollView
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -48,6 +49,9 @@ class OverlayEditorPanelViewTest {
         val swatches = findViews(panel) { view ->
             view.tag?.toString()?.startsWith("color-swatch:") == true
         }
+        val header = panel.getChildAt(0) as ViewGroup
+        val nameInput = findViews(panel) { it is EditText }.single() as EditText
+        assertEquals("拖动编辑面板", header.getChildAt(0).contentDescription)
         assertTrue(swatches.size >= 8)
         assertNotNull(findViews(panel) { it is HorizontalScrollView }.firstOrNull())
         val black = swatches.first { it.tag.toString() == "color-swatch:FF000000" }
@@ -55,8 +59,10 @@ class OverlayEditorPanelViewTest {
         assertTrue(black.isSelected)
         assertFalse(red.isSelected)
 
+        instrumentation.runOnMainSync { nameInput.setText("自定义防烧屏") }
         instrumentation.runOnMainSync { red.performClick() }
 
+        assertEquals("自定义防烧屏", (emittedConfig as BurnMaskConfig).name)
         assertTrue(red.isSelected)
         assertFalse(black.isSelected)
         assertEquals(0xFFEF4444, (emittedConfig as BurnMaskConfig).colorArgb)

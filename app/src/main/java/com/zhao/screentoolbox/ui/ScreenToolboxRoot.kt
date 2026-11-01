@@ -240,7 +240,6 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
                     initial = initial,
                     overlays = state.overlays,
                     onSave = viewModel::saveRule,
-                    onDelete = existing?.let { rule -> { id: Long -> viewModel.deleteRule(id) } },
                     onBack = { navController.popBackStack() },
                 )
             }

@@ -1,6 +1,8 @@
 package com.zhao.screentoolbox.ui.feature.overlays
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -8,8 +10,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.BorderClear
@@ -18,10 +23,11 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -33,7 +39,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zhao.screentoolbox.core.model.BurnMaskConfig
 import com.zhao.screentoolbox.core.model.OverlayConfig
@@ -44,7 +54,6 @@ import com.zhao.screentoolbox.ui.MainUiState
 import com.zhao.screentoolbox.ui.components.InfoCard
 import com.zhao.screentoolbox.ui.components.ScreenHeader
 import com.zhao.screentoolbox.ui.components.StatusBadge
-import com.zhao.screentoolbox.ui.theme.BrandBlue
 
 @Composable
 fun OverlaysScreen(
@@ -59,77 +68,86 @@ fun OverlaysScreen(
     var pendingDelete by remember { mutableStateOf<OverlayConfig?>(null) }
     val items = state.overlays.filter { it.type == selectedType }
     val ruleControlled = selectedType in state.runtime.ruleControlledTypes
+    val addLabel = "新建${typeName(selectedType)}"
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp, 20.dp, 16.dp, 32.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item {
-            ScreenHeader("悬浮窗", "创建、编辑并控制独立的系统窗口")
-        }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                TypeChip("防烧屏", OverlayType.BURN_MASK, selectedType) { selectedType = it }
-                TypeChip("防误触", OverlayType.TOUCH_BLOCK, selectedType) { selectedType = it }
-                TypeChip("水印", OverlayType.WATERMARK, selectedType) { selectedType = it }
-            }
-        }
-        if (ruleControlled) {
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                top = 20.dp,
+                end = 16.dp,
+                bottom = 112.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             item {
-                InfoCard(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)) {
-                    Text(
-                        "当前应用规则正在控制此类窗口，规则外的开关将保持锁定。",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                ScreenHeader("悬浮窗", "创建、编辑并控制独立的系统窗口")
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    TypeChip("防烧屏", OverlayType.BURN_MASK, selectedType) { selectedType = it }
+                    TypeChip("防误触", OverlayType.TOUCH_BLOCK, selectedType) { selectedType = it }
+                    TypeChip("水印", OverlayType.WATERMARK, selectedType) { selectedType = it }
                 }
             }
-        }
-        if (items.isEmpty()) {
-            item {
-                InfoCard {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Icon(typeIcon(selectedType), contentDescription = null, tint = BrandBlue)
-                        Spacer(Modifier.padding(6.dp))
-                        Text("还没有配置", style = MaterialTheme.typography.titleMedium)
+            if (ruleControlled) {
+                item {
+                    InfoCard(containerColor = MaterialTheme.colorScheme.primaryContainer) {
                         Text(
-                            "创建后可在页面中精确编辑，并实时预览系统窗口。",
+                            "当前应用规则正在控制此类窗口，规则外的开关将保持锁定。",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Spacer(Modifier.padding(6.dp))
-                        Button(onClick = { onAdd(selectedType) }) {
-                            Icon(Icons.Outlined.Add, contentDescription = null)
-                            Text("新建${typeName(selectedType)}")
+                    }
+                }
+            }
+            if (items.isEmpty()) {
+                item {
+                    InfoCard {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Icon(
+                                typeIcon(selectedType),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Spacer(Modifier.padding(6.dp))
+                            Text("还没有配置", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "创建后可在页面中精确编辑，并实时预览系统窗口。",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
             }
-        }
-        items(items, key = { it.id }) { config ->
-            val boundAppCount = state.rules.count { config.id in it.configIds }
-            OverlayConfigRow(
-                config = config,
-                canToggleGlobally = !ruleControlled && boundAppCount == 0,
-                boundAppCount = boundAppCount,
-                onToggle = { onToggle(config, it) },
-                onEdit = { onEdit(config) },
-                onDelete = { pendingDelete = config },
-            )
-        }
-        if (items.isNotEmpty()) {
-            item {
-                Button(onClick = { onAdd(selectedType) }, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Outlined.Add, contentDescription = null)
-                    Text("新建${typeName(selectedType)}")
-                }
+            items(items, key = { it.id }) { config ->
+                val boundAppCount = state.rules.count { config.id in it.configIds }
+                OverlayConfigRow(
+                    config = config,
+                    canToggleGlobally = !ruleControlled && boundAppCount == 0,
+                    boundAppCount = boundAppCount,
+                    onToggle = { onToggle(config, it) },
+                    onEdit = { onEdit(config) },
+                    onDelete = { pendingDelete = config },
+                )
             }
+        }
+
+        FloatingActionButton(
+            onClick = { onAdd(selectedType) },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(20.dp)
+                .semantics { contentDescription = addLabel },
+        ) {
+            Icon(Icons.Outlined.Add, contentDescription = null)
         }
     }
 
@@ -163,46 +181,99 @@ private fun OverlayConfigRow(
     onDelete: () -> Unit,
 ) {
     InfoCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Icon(typeIcon(config.type), contentDescription = null, tint = BrandBlue)
-            Column(Modifier.weight(1f)) {
-                Text(config.name, style = MaterialTheme.typography.titleMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    StatusBadge(
-                        text = when {
-                            boundAppCount > 0 -> "应用限定"
-                            config.enabled -> "全局启用"
-                            else -> "已停用"
-                        },
-                        active = boundAppCount > 0 || config.enabled,
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        typeIcon(config.type),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp),
                     )
+                }
+                Column(Modifier.weight(1f)) {
                     Text(
-                        if (boundAppCount > 0) {
-                            "${configSummary(config)} · $boundAppCount 个应用"
-                        } else {
-                            configSummary(config)
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        config.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        StatusBadge(
+                            text = when {
+                                boundAppCount > 0 -> "应用限定"
+                                config.enabled -> "全局启用"
+                                else -> "已停用"
+                            },
+                            active = boundAppCount > 0 || config.enabled,
+                        )
+                        Text(
+                            if (boundAppCount > 0) {
+                                "${configSummary(config)} · $boundAppCount 个应用"
+                            } else {
+                                configSummary(config)
+                            },
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                if (boundAppCount == 0) {
+                    Switch(
+                        checked = config.enabled,
+                        onCheckedChange = onToggle,
+                        enabled = canToggleGlobally,
                     )
                 }
             }
-            if (boundAppCount == 0) {
-                Switch(
-                    checked = config.enabled,
-                    onCheckedChange = onToggle,
-                    enabled = canToggleGlobally,
-                )
-            }
-            IconButton(onClick = onEdit) {
-                Icon(Icons.Outlined.Edit, contentDescription = "编辑")
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Outlined.Delete, contentDescription = "删除")
+            HorizontalDivider(
+                modifier = Modifier.padding(top = 10.dp),
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(onClick = onEdit) {
+                    Icon(
+                        Icons.Outlined.Edit,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text("编辑")
+                }
+                TextButton(
+                    onClick = onDelete,
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error,
+                    ),
+                ) {
+                    Icon(
+                        Icons.Outlined.Delete,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text("删除")
+                }
             }
         }
     }
