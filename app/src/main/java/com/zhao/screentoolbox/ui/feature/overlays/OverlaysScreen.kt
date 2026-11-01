@@ -113,9 +113,11 @@ fun OverlaysScreen(
             }
         }
         items(items, key = { it.id }) { config ->
+            val boundAppCount = state.rules.count { config.id in it.configIds }
             OverlayConfigRow(
                 config = config,
-                enabled = !ruleControlled,
+                canToggleGlobally = !ruleControlled && boundAppCount == 0,
+                boundAppCount = boundAppCount,
                 onToggle = { onToggle(config, it) },
                 onEdit = { onEdit(config) },
                 onDelete = { pendingDelete = config },
@@ -154,7 +156,8 @@ fun OverlaysScreen(
 @Composable
 private fun OverlayConfigRow(
     config: OverlayConfig,
-    enabled: Boolean,
+    canToggleGlobally: Boolean,
+    boundAppCount: Int,
     onToggle: (Boolean) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -170,21 +173,31 @@ private fun OverlayConfigRow(
                 Text(config.name, style = MaterialTheme.typography.titleMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     StatusBadge(
-                        text = if (config.enabled) "已启用" else "已停用",
-                        active = config.enabled,
+                        text = when {
+                            boundAppCount > 0 -> "应用限定"
+                            config.enabled -> "全局启用"
+                            else -> "已停用"
+                        },
+                        active = boundAppCount > 0 || config.enabled,
                     )
                     Text(
-                        configSummary(config),
+                        if (boundAppCount > 0) {
+                            "${configSummary(config)} · $boundAppCount 个应用"
+                        } else {
+                            configSummary(config)
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
-            Switch(
-                checked = config.enabled,
-                onCheckedChange = onToggle,
-                enabled = enabled,
-            )
+            if (boundAppCount == 0) {
+                Switch(
+                    checked = config.enabled,
+                    onCheckedChange = onToggle,
+                    enabled = canToggleGlobally,
+                )
+            }
             IconButton(onClick = onEdit) {
                 Icon(Icons.Outlined.Edit, contentDescription = "编辑")
             }

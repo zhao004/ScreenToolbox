@@ -44,7 +44,7 @@ Debug APK 由 Android Gradle Plugin 的标准输出目录生成。Release 构建
 - Compose 只负责应用内 UI，System Overlay 使用 Android View + WindowManager。
 - `OverlayService` 是窗口运行态唯一所有者，`OverlayManager` 统一创建、更新、移除窗口。
 - ViewModel 通过 `StateFlow` 暴露状态，不在 Composable 中执行业务逻辑。
-- 数据库访问均经过 Repository，应用规则优先于手动配置，无匹配规则时回退全局配置。
+- 数据库访问均经过 Repository，应用规则优先于手动配置；无匹配规则时只显示未绑定应用的全局配置。
 
 ## 系统限制
 

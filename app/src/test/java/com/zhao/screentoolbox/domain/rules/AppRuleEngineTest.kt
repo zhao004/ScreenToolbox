@@ -62,6 +62,50 @@ class AppRuleEngineTest {
     }
 
     @Test
+    fun boundConfigIsExcludedFromGlobalFallback() {
+        val rule = AppRule(
+            id = 1,
+            packageName = "target.app",
+            displayName = "Target",
+            configIds = setOf("burn"),
+        )
+
+        val resolution = engine.resolve(
+            configs = configs,
+            rules = listOf(rule),
+            settings = AppSettings(autoAssociationEnabled = true),
+            foregroundPackage = "other.app",
+            ownPackage = "self.app",
+            temporaryUnlockActive = false,
+            preview = null,
+        )
+
+        assertEquals(setOf("touch", "watermark"), resolution.activeConfigs.map { it.id }.toSet())
+    }
+
+    @Test
+    fun bindingScopeRemainsActiveWhenAppAssociationIsDisabled() {
+        val rule = AppRule(
+            id = 1,
+            packageName = "target.app",
+            displayName = "Target",
+            configIds = setOf("watermark"),
+        )
+
+        val resolution = engine.resolve(
+            configs = configs,
+            rules = listOf(rule),
+            settings = AppSettings(autoAssociationEnabled = false),
+            foregroundPackage = "target.app",
+            ownPackage = "self.app",
+            temporaryUnlockActive = false,
+            preview = null,
+        )
+
+        assertEquals(setOf("burn", "touch"), resolution.activeConfigs.map { it.id }.toSet())
+    }
+
+    @Test
     fun ownPackageHidesRegularOverlays() {
         val resolution = engine.resolve(
             configs = configs,
