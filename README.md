@@ -4,6 +4,10 @@
 Jetpack Compose、MVVM + Repository、Hilt、Room 和 DataStore 实现，不依赖 Root、
 Shizuku 或云端服务。
 
+## 项目预览
+
+![ScreenToolbox 项目预览](assets/images/img01.jpg)
+
 ## 功能
 
 - 防烧屏与防误触：新建和编辑共用可拖动、可最小化并自动吸附屏幕侧边的系统悬浮面板，支持宽高进度条、区域拖动和归一化坐标恢复。
