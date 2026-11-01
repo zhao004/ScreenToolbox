@@ -86,6 +86,30 @@ class MainViewModelTest {
         coVerify(exactly = 0) { appRuleRepository.save(any()) }
     }
 
+    @Test
+    fun configuredRuleChangesArePersistedImmediately() = runTest(dispatcher) {
+        val viewModel = mainViewModel()
+        val configuredRule = globalRule().copy(
+            enabled = false,
+            configIds = setOf("mask"),
+        )
+
+        viewModel.updateRule(configuredRule)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { appRuleRepository.save(configuredRule) }
+    }
+
+    @Test
+    fun emptyRuleChangesAreNotPersisted() = runTest(dispatcher) {
+        val viewModel = mainViewModel()
+
+        viewModel.updateRule(globalRule().copy(enabled = false))
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { appRuleRepository.save(any()) }
+    }
+
     private fun mainViewModel() = MainViewModel(
         context = context,
         overlayRepository = overlayRepository,

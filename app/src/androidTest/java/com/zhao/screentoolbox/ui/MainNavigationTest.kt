@@ -17,10 +17,10 @@ class MainNavigationTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun navigationOmitsOverlayPageAndShowsGlobalApplicationEntry() {
-        composeRule.onNodeWithText("屏幕工具箱").assertIsDisplayed()
+    fun navigationStartsOnAppsAndOmitsHomeAndOverlayPages() {
+        composeRule.onNodeWithText("应用管理").assertIsDisplayed()
         composeRule.onNodeWithText("悬浮窗").assertDoesNotExist()
-        composeRule.onNodeWithText("应用").performClick()
+        composeRule.onNodeWithText("首页").assertDoesNotExist()
         composeRule.onNodeWithContentDescription("配置全局应用").assertIsDisplayed()
         composeRule.onNodeWithText("为指定应用或全局应用配置叠加规则").assertIsDisplayed()
     }
@@ -29,7 +29,8 @@ class MainNavigationTest {
     fun settingsOmitsGlobalAssociationAndQuickActions() {
         composeRule.onNodeWithText("设置").performClick()
 
-        composeRule.onNodeWithText("权限和自动化选项").assertIsDisplayed()
+        composeRule.onNodeWithText("权限、前台服务与自动化选项").assertIsDisplayed()
+        composeRule.onNodeWithText("前台服务").assertIsDisplayed()
         composeRule.onNodeWithText("开机自动恢复").assertIsDisplayed()
         composeRule.onNodeWithText("应用自动关联").assertDoesNotExist()
         composeRule.onNodeWithText("快捷操作").assertDoesNotExist()

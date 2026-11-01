@@ -15,6 +15,7 @@ import com.zhao.screentoolbox.core.model.NormalizedRect
 import com.zhao.screentoolbox.ui.MainUiState
 import com.zhao.screentoolbox.ui.theme.ScreenToolboxTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -146,6 +147,15 @@ class AppsScreenTest {
         }
 
         composeRule.onNodeWithText("全局应用").assertIsDisplayed()
+        val searchTop = composeRule.onNodeWithText("搜索应用")
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .top
+        val globalTop = composeRule.onNodeWithText("全局应用")
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .top
+        assertTrue(globalTop > searchTop)
         composeRule.onNodeWithContentDescription("配置全局应用").performClick()
         composeRule.runOnIdle {
             assertEquals(true, globalOpened)

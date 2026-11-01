@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Apps
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -42,13 +41,11 @@ import com.zhao.screentoolbox.core.model.GLOBAL_RULE_PACKAGE
 import com.zhao.screentoolbox.core.model.WatermarkConfig
 import com.zhao.screentoolbox.ui.feature.apps.AppRuleEditorScreen
 import com.zhao.screentoolbox.ui.feature.apps.AppsScreen
-import com.zhao.screentoolbox.ui.feature.home.HomeScreen
 import com.zhao.screentoolbox.ui.feature.overlays.WatermarkEditorScreen
 import com.zhao.screentoolbox.ui.feature.settings.SettingsScreen
 import java.util.UUID
 
 private object Routes {
-    const val Home = "home"
     const val Apps = "apps"
     const val Settings = "settings"
     const val WatermarkEditor = "watermark/{id}/{rulePackage}/{ruleLabel}/{attach}"
@@ -73,7 +70,6 @@ private data class BottomDestination(
 )
 
 private val bottomDestinations = listOf(
-    BottomDestination(Routes.Home, "首页", Icons.Outlined.Home),
     BottomDestination(Routes.Apps, "应用", Icons.Outlined.Apps),
     BottomDestination(Routes.Settings, "设置", Icons.Outlined.Settings),
 )
@@ -165,18 +161,11 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Routes.Home,
+            startDestination = Routes.Apps,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
         ) {
-            composable(Routes.Home) {
-                HomeScreen(
-                    state = state,
-                    onServiceToggle = viewModel::setServiceEnabled,
-                    onDismissError = viewModel::clearRuntimeError,
-                )
-            }
             composable(Routes.Apps) {
                 AppsScreen(
                     state = state,
@@ -196,6 +185,8 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
             composable(Routes.Settings) {
                 SettingsScreen(
                     state = state,
+                    onServiceToggle = viewModel::setServiceEnabled,
+                    onDismissError = viewModel::clearRuntimeError,
                     onBootToggle = viewModel::setAutoStartOnBoot,
                     onOverlayPermission = {
                         context.startActivity(viewModel.overlaySettingsIntent())
@@ -267,7 +258,7 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
                     initial = initial,
                     overlays = state.overlays,
                     ruleReferenceCounts = ruleReferenceCounts,
-                    onSave = viewModel::saveRule,
+                    onRuleChanged = viewModel::updateRule,
                     onAddRule = viewModel::addRuleConfig,
                     onEditConfig = viewModel::editRuleConfig,
                     onDeleteConfig = { config -> viewModel.deleteOverlay(config.id) },

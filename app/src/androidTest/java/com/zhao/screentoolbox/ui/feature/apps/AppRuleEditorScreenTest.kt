@@ -42,7 +42,7 @@ class AppRuleEditorScreenTest {
                     initial = initial,
                     overlays = listOf(boundMask, unboundMask),
                     ruleReferenceCounts = mapOf("mask-1" to 1),
-                    onSave = {},
+                    onRuleChanged = {},
                     onAddRule = { _, _ -> },
                     onEditConfig = { _, config -> edited = config },
                     onDeleteConfig = { deleted = it },
@@ -87,7 +87,7 @@ class AppRuleEditorScreenTest {
                     initial = initial,
                     overlays = emptyList(),
                     ruleReferenceCounts = emptyMap(),
-                    onSave = {},
+                    onRuleChanged = {},
                     onAddRule = { rule, type ->
                         selectedRule = rule
                         selectedType = type
@@ -113,12 +113,12 @@ class AppRuleEditorScreenTest {
     }
 
     @Test
-    fun saveActionAppearsOnlyAfterRuleChanges() {
+    fun switchesSaveImmediatelyWithoutTopSaveAction() {
         val initial = AppRule(
             packageName = "com.example.target",
             displayName = "测试应用",
         )
-        var saved: AppRule? = null
+        var changed: AppRule? = null
 
         composeRule.setContent {
             ScreenToolboxTheme(darkTheme = false) {
@@ -126,7 +126,7 @@ class AppRuleEditorScreenTest {
                     initial = initial,
                     overlays = emptyList(),
                     ruleReferenceCounts = emptyMap(),
-                    onSave = { saved = it },
+                    onRuleChanged = { changed = it },
                     onAddRule = { _, _ -> },
                     onEditConfig = { _, _ -> },
                     onDeleteConfig = {},
@@ -137,9 +137,8 @@ class AppRuleEditorScreenTest {
 
         composeRule.onNodeWithContentDescription("保存").assertDoesNotExist()
         composeRule.onAllNodes(isToggleable()).onFirst().performClick()
-        composeRule.onNodeWithContentDescription("保存").performClick()
         composeRule.runOnIdle {
-            assertEquals(initial.copy(enabled = false), saved)
+            assertEquals(initial.copy(enabled = false), changed)
         }
     }
 

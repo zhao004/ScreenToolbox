@@ -23,7 +23,6 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Layers
-import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,13 +70,13 @@ fun AppRuleEditorScreen(
     initial: AppRule,
     overlays: List<OverlayConfig>,
     ruleReferenceCounts: Map<String, Int>,
-    onSave: (AppRule) -> Unit,
+    onRuleChanged: (AppRule) -> Unit,
     onAddRule: (AppRule, OverlayType) -> Unit,
     onEditConfig: (AppRule, OverlayConfig) -> Unit,
     onDeleteConfig: (OverlayConfig) -> Unit,
     onBack: () -> Unit,
 ) {
-    var draft by remember(initial) { mutableStateOf(initial) }
+    var draft by remember(initial.packageName) { mutableStateOf(initial) }
     var burnMaskExpanded by rememberSaveable(initial.packageName) { mutableStateOf(false) }
     var touchBlockExpanded by rememberSaveable(initial.packageName) { mutableStateOf(false) }
     var watermarkExpanded by rememberSaveable(initial.packageName) { mutableStateOf(false) }
@@ -86,8 +86,17 @@ fun AppRuleEditorScreen(
     val burnMaskConfigs = attachedConfigs.filter { it.type == OverlayType.BURN_MASK }
     val touchBlockConfigs = attachedConfigs.filter { it.type == OverlayType.TOUCH_BLOCK }
     val watermarkConfigs = attachedConfigs.filter { it.type == OverlayType.WATERMARK }
-    val hasChanges = draft != initial
     val isGlobal = initial.isGlobalRule()
+    val updateRule: (AppRule) -> Unit = { updated ->
+        draft = updated
+        onRuleChanged(updated)
+    }
+
+    LaunchedEffect(initial.configIds) {
+        if (draft.configIds != initial.configIds) {
+            draft = draft.copy(configIds = initial.configIds)
+        }
+    }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
@@ -96,13 +105,6 @@ fun AppRuleEditorScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
-                    }
-                },
-                actions = {
-                    if (hasChanges) {
-                        IconButton(onClick = { onSave(draft) }) {
-                            Icon(Icons.Outlined.Save, contentDescription = "保存")
-                        }
                     }
                 },
             )
@@ -132,7 +134,7 @@ fun AppRuleEditorScreen(
                             }
                             Switch(
                                 checked = draft.enabled,
-                                onCheckedChange = { draft = draft.copy(enabled = it) },
+                                onCheckedChange = { updateRule(draft.copy(enabled = it)) },
                             )
                         }
                     }
@@ -148,7 +150,7 @@ fun AppRuleEditorScreen(
                         action = {
                             Switch(
                                 checked = draft.burnMaskEnabled,
-                                onCheckedChange = { draft = draft.copy(burnMaskEnabled = it) },
+                                onCheckedChange = { updateRule(draft.copy(burnMaskEnabled = it)) },
                             )
                         },
                     ) {
@@ -170,7 +172,7 @@ fun AppRuleEditorScreen(
                         action = {
                             Switch(
                                 checked = draft.touchBlockEnabled,
-                                onCheckedChange = { draft = draft.copy(touchBlockEnabled = it) },
+                                onCheckedChange = { updateRule(draft.copy(touchBlockEnabled = it)) },
                             )
                         },
                     ) {
@@ -192,7 +194,7 @@ fun AppRuleEditorScreen(
                         action = {
                             Switch(
                                 checked = draft.watermarkEnabled,
-                                onCheckedChange = { draft = draft.copy(watermarkEnabled = it) },
+                                onCheckedChange = { updateRule(draft.copy(watermarkEnabled = it)) },
                             )
                         },
                     ) {

@@ -74,12 +74,6 @@ fun AppsScreen(
         item {
             ScreenHeader("应用管理", "为指定应用或全局应用配置叠加规则")
         }
-        item {
-            GlobalRuleRow(
-                hasRule = GLOBAL_RULE_PACKAGE in activeRulePackages,
-                onClick = onConfigureGlobal,
-            )
-        }
         if (!state.permissions.usageAccessGranted) {
             item {
                 InfoCard(containerColor = MaterialTheme.colorScheme.primaryContainer) {
@@ -105,6 +99,12 @@ fun AppsScreen(
                 leadingIcon = {
                     Icon(Icons.Outlined.Search, contentDescription = null)
                 },
+            )
+        }
+        item {
+            GlobalRuleRow(
+                hasRule = GLOBAL_RULE_PACKAGE in activeRulePackages,
+                onClick = onConfigureGlobal,
             )
         }
         if (state.loadingApps) {

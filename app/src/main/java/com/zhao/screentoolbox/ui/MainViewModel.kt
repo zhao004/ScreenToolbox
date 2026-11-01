@@ -38,6 +38,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 data class MainUiState(
     val overlays: List<OverlayConfig> = emptyList(),
@@ -76,6 +78,7 @@ class MainViewModel @Inject constructor(
     private val loadingApps = MutableStateFlow(true)
     private val messages = Channel<String>(Channel.BUFFERED)
     private val ruleActions = Channel<RuleActionEvent>(Channel.BUFFERED)
+    private val ruleUpdateMutex = Mutex()
     private var pendingWatermarkRule: AppRule? = null
 
     val messageEvents = messages.receiveAsFlow()
@@ -187,11 +190,16 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun saveRule(rule: AppRule) {
+    /** 实时保存已绑定配置的规则开关；空规则只在配置保存时一并创建。 */
+    fun updateRule(rule: AppRule) {
+        if (rule.configIds.isEmpty()) return
         viewModelScope.launch {
-            runCatching { appRuleRepository.save(rule) }
-                .onSuccess { messages.send("应用规则保存成功") }
-                .onFailure { messages.send("保存应用规则失败") }
+            val result = ruleUpdateMutex.withLock {
+                runCatching { appRuleRepository.save(rule) }
+            }
+            if (result.isFailure) {
+                messages.send("保存应用规则失败")
+            }
         }
     }
 
