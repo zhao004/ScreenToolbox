@@ -19,8 +19,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Save
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +28,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -35,13 +36,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.zhao.screentoolbox.core.model.WatermarkConfig
 import com.zhao.screentoolbox.core.model.WatermarkMode
+import com.zhao.screentoolbox.ui.components.AppScreenContainer
 import com.zhao.screentoolbox.ui.components.InfoCard
+import com.zhao.screentoolbox.ui.theme.AppSpacing
 
+/**
+ * 水印配置页。
+ *
+ * 编辑过程中的每次状态变化都会刷新系统预览，离开页面时由 DisposableEffect
+ * 终止预览，避免 Composition 销毁后遗留悬浮窗。
+ */
 @Composable
 fun WatermarkEditorScreen(
     initial: WatermarkConfig,
@@ -67,53 +77,60 @@ fun WatermarkEditorScreen(
             onBack()
         },
     ) {
-        NameField(draft.name) { draft = draft.copy(name = it) }
-        OutlinedTextField(
-            value = draft.text,
-            onValueChange = { value -> draft = draft.copy(text = value.take(120)) },
-            label = { Text("水印文字") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(
-                selected = draft.mode == WatermarkMode.SINGLE,
-                onClick = { draft = draft.copy(mode = WatermarkMode.SINGLE) },
-                label = { Text("单条") },
+        EditorSection(title = "基础信息") {
+            NameField(draft.name) { draft = draft.copy(name = it) }
+            OutlinedTextField(
+                value = draft.text,
+                onValueChange = { value -> draft = draft.copy(text = value.take(120)) },
+                label = { Text("水印文字") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
             )
-            FilterChip(
-                selected = draft.mode == WatermarkMode.TILED,
-                onClick = { draft = draft.copy(mode = WatermarkMode.TILED) },
-                label = { Text("平铺") },
-            )
-        }
-        ColorField(draft.colorArgb) { draft = draft.copy(colorArgb = it) }
-        ValueSlider("字体大小", draft.textSizeSp, 10f, 96f, "sp") {
-            draft = draft.copy(textSizeSp = it)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(400, 500, 600, 700).forEach { weight ->
+            Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
                 FilterChip(
-                    selected = draft.fontWeight == weight,
-                    onClick = { draft = draft.copy(fontWeight = weight) },
-                    label = { Text(weight.toString()) },
+                    selected = draft.mode == WatermarkMode.SINGLE,
+                    onClick = { draft = draft.copy(mode = WatermarkMode.SINGLE) },
+                    label = { Text("单条") },
+                )
+                FilterChip(
+                    selected = draft.mode == WatermarkMode.TILED,
+                    onClick = { draft = draft.copy(mode = WatermarkMode.TILED) },
+                    label = { Text("平铺") },
                 )
             }
         }
-        PercentSlider("不透明度", draft.alpha) { draft = draft.copy(alpha = it) }
-        ValueSlider("旋转角度", draft.rotationDegrees, -90f, 90f, "°") {
-            draft = draft.copy(rotationDegrees = it)
+        EditorSection(title = "文字样式") {
+            ColorField(draft.colorArgb) { draft = draft.copy(colorArgb = it) }
+            ValueSlider("字体大小", draft.textSizeSp, 10f, 96f, "sp") {
+                draft = draft.copy(textSizeSp = it)
+            }
+            Text("字重", style = MaterialTheme.typography.titleSmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
+                listOf(400, 500, 600, 700).forEach { weight ->
+                    FilterChip(
+                        selected = draft.fontWeight == weight,
+                        onClick = { draft = draft.copy(fontWeight = weight) },
+                        label = { Text(weight.toString()) },
+                    )
+                }
+            }
+            PercentSlider("不透明度", draft.alpha) { draft = draft.copy(alpha = it) }
+            ValueSlider("旋转角度", draft.rotationDegrees, -90f, 90f, "°") {
+                draft = draft.copy(rotationDegrees = it)
+            }
         }
-        if (draft.mode == WatermarkMode.TILED) {
-            ValueSlider("平铺间距", draft.tileSpacingDp, 32f, 240f, "dp") {
-                draft = draft.copy(tileSpacingDp = it)
-            }
-        } else {
-            PercentSlider("水平位置", draft.positionXRatio) {
-                draft = draft.copy(positionXRatio = it)
-            }
-            PercentSlider("垂直位置", draft.positionYRatio) {
-                draft = draft.copy(positionYRatio = it)
+        EditorSection(title = "布局位置") {
+            if (draft.mode == WatermarkMode.TILED) {
+                ValueSlider("平铺间距", draft.tileSpacingDp, 32f, 240f, "dp") {
+                    draft = draft.copy(tileSpacingDp = it)
+                }
+            } else {
+                PercentSlider("水平位置", draft.positionXRatio) {
+                    draft = draft.copy(positionXRatio = it)
+                }
+                PercentSlider("垂直位置", draft.positionYRatio) {
+                    draft = draft.copy(positionYRatio = it)
+                }
             }
         }
     }
@@ -127,29 +144,59 @@ private fun EditorFrame(
     onSave: () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    Column(Modifier.fillMaxSize()) {
-        TopAppBar(
-            title = { Text(title) },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
-                }
-            },
-            actions = {
-                IconButton(onClick = onSave) {
-                    Icon(Icons.Outlined.Save, contentDescription = "保存")
-                }
-            },
-        )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
+    AppScreenContainer {
+        Column(Modifier.fillMaxSize()) {
+            TopAppBar(
+                title = { Text(title) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onSave) {
+                        Icon(Icons.Outlined.Save, contentDescription = "保存")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+                    actionIconContentColor = MaterialTheme.colorScheme.primary,
+                ),
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(
+                        start = AppSpacing.md,
+                        top = AppSpacing.xs,
+                        end = AppSpacing.md,
+                        bottom = AppSpacing.lg,
+                    ),
+                verticalArrangement = Arrangement.spacedBy(AppSpacing.sm),
+            ) {
+                content()
+                Spacer(Modifier.height(AppSpacing.md))
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditorSection(
+    title: String,
+    content: @Composable () -> Unit,
+) {
+    InfoCard {
+        Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
             content()
-            Spacer(Modifier.height(24.dp))
         }
     }
 }
@@ -185,7 +232,7 @@ private fun ValueSlider(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(label, style = MaterialTheme.typography.titleMedium)
+            Text(label, style = MaterialTheme.typography.titleSmall)
             Text(
                 "${(value / divisor).toInt()}$unit",
                 style = MaterialTheme.typography.bodyMedium,
@@ -202,44 +249,49 @@ private fun ValueSlider(
 
 @Composable
 private fun ColorField(colorArgb: Long, onColor: (Long) -> Unit) {
-    val presets = listOf(0xFF000000, 0xFFFFFFFF, 0xFF2563EB, 0xFFEF4444, 0xFF16A34A, 0xFFF59E0B)
+    val presets = listOf(
+        0xFF000000,
+        0xFFFFFFFF,
+        0xFF1976D2,
+        0xFFDC2626,
+        0xFF16A34A,
+        0xFFD97706,
+    )
     var hexText by remember(colorArgb) {
         mutableStateOf("#${colorArgb.toString(16).uppercase().padStart(8, '0')}")
     }
-    InfoCard {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("颜色", style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                presets.forEach { color ->
-                    val selected = color == colorArgb
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(Color(color.toInt()), CircleShape)
-                            .border(
-                                width = if (selected) 2.dp else 1.dp,
-                                color = if (selected) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.outline
-                                },
-                                shape = CircleShape,
-                            )
-                            .clickable { onColor(color) },
-                    )
-                }
+    Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
+        Text("颜色", style = MaterialTheme.typography.titleSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
+            presets.forEach { color ->
+                val selected = color == colorArgb
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(Color(color.toInt()), CircleShape)
+                        .border(
+                            width = if (selected) 3.dp else 1.dp,
+                            color = if (selected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.outline
+                            },
+                            shape = CircleShape,
+                        )
+                        .clickable { onColor(color) },
+                )
             }
-            OutlinedTextField(
-                value = hexText,
-                onValueChange = { value ->
-                    hexText = value
-                    parseArgb(value)?.let(onColor)
-                },
-                label = { Text("ARGB 十六进制") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
         }
+        OutlinedTextField(
+            value = hexText,
+            onValueChange = { value ->
+                hexText = value
+                parseArgb(value)?.let(onColor)
+            },
+            label = { Text("ARGB 十六进制") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
     }
 }
 

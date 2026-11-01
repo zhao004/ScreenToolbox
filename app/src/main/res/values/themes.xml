@@ -10,4 +10,10 @@
         <item name="android:colorAccent">@color/brand_blue</item>
         <item name="android:windowNoTitle">true</item>
     </style>
+
+    <style name="Theme.ScreenToolbox.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/window_background_light</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.ScreenToolbox</item>
+    </style>
 </resources>

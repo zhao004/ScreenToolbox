@@ -1,6 +1,8 @@
 package com.zhao.screentoolbox.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -27,7 +29,7 @@ class MainNavigationTest {
 
     @Test
     fun settingsOmitsGlobalAssociationAndQuickActions() {
-        composeRule.onNodeWithText("设置").performClick()
+        composeRule.onNode(hasText("设置") and isSelectable()).performClick()
 
         composeRule.onNodeWithText("权限、前台服务与自动化选项").assertIsDisplayed()
         composeRule.onNodeWithText("前台服务").assertIsDisplayed()

@@ -5,14 +5,20 @@ import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Apps
-import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Apps as AppsOutlined
+import androidx.compose.material.icons.outlined.Settings as SettingsOutlined
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -25,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -66,12 +73,23 @@ private object Routes {
 private data class BottomDestination(
     val route: String,
     val label: String,
-    val icon: ImageVector,
+    val selectedIcon: ImageVector,
+    val unselectedIcon: ImageVector,
 )
 
 private val bottomDestinations = listOf(
-    BottomDestination(Routes.Apps, "应用", Icons.Outlined.Apps),
-    BottomDestination(Routes.Settings, "设置", Icons.Outlined.Settings),
+    BottomDestination(
+        route = Routes.Apps,
+        label = "应用",
+        selectedIcon = Icons.Filled.Apps,
+        unselectedIcon = Icons.Outlined.AppsOutlined,
+    ),
+    BottomDestination(
+        route = Routes.Settings,
+        label = "设置",
+        selectedIcon = Icons.Filled.Settings,
+        unselectedIcon = Icons.Outlined.SettingsOutlined,
+    ),
 )
 
 @Composable
@@ -135,25 +153,49 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
     val showBottomBar = currentRoute in bottomDestinations.map { it.route }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
             if (showBottomBar) {
-                NavigationBar {
-                    bottomDestinations.forEach { destination ->
-                        NavigationBarItem(
-                            selected = currentRoute == destination.route,
-                            onClick = {
-                                navController.navigate(destination.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+                Column {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    NavigationBar(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 0.dp,
+                    ) {
+                        bottomDestinations.forEach { destination ->
+                            val selected = currentRoute == destination.route
+                            NavigationBarItem(
+                                selected = selected,
+                                onClick = {
+                                    navController.navigate(destination.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = { Icon(destination.icon, contentDescription = destination.label) },
-                            label = { Text(destination.label) },
-                        )
+                                },
+                                icon = {
+                                    Icon(
+                                        imageVector = if (selected) {
+                                            destination.selectedIcon
+                                        } else {
+                                            destination.unselectedIcon
+                                        },
+                                        contentDescription = destination.label,
+                                    )
+                                },
+                                label = { Text(destination.label) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                ),
+                            )
+                        }
                     }
                 }
             }

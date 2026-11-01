@@ -10,6 +10,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.RestartAlt
+import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -17,15 +23,24 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zhao.screentoolbox.core.model.GLOBAL_RULE_PACKAGE
 import com.zhao.screentoolbox.ui.MainUiState
+import com.zhao.screentoolbox.ui.components.AppScreenContainer
 import com.zhao.screentoolbox.ui.components.ErrorBanner
+import com.zhao.screentoolbox.ui.components.IconTile
 import com.zhao.screentoolbox.ui.components.InfoCard
 import com.zhao.screentoolbox.ui.components.PermissionRow
 import com.zhao.screentoolbox.ui.components.ScreenHeader
 import com.zhao.screentoolbox.ui.components.StatusBadge
+import com.zhao.screentoolbox.ui.theme.AppSpacing
 
+/**
+ * 设置页集中展示服务运行态、系统权限与自动化开关。
+ *
+ * 权限未授予时由对应行直接进入系统设置，页面不缓存或补写权限状态。
+ */
 @Composable
 fun SettingsScreen(
     state: MainUiState,
@@ -39,128 +54,201 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     val ruleControls = state.runtime.matchedRulePackage != null
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp, 20.dp, 16.dp, 32.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item { ScreenHeader("设置", "权限、前台服务与自动化选项") }
-        state.runtime.lastError?.let { error ->
-            item { ErrorBanner(text = error, onDismiss = onDismissError) }
-        }
-        item {
-            InfoCard(containerColor = MaterialTheme.colorScheme.primaryContainer) {
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text("前台服务", style = MaterialTheme.typography.titleLarge)
-                            Text(
-                                "统一承载全部悬浮窗",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Switch(
-                            checked = state.settings.serviceEnabled,
-                            onCheckedChange = onServiceToggle,
-                        )
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        StatusBadge(
-                            text = if (state.runtime.serviceRunning) "运行中" else "未运行",
-                            active = state.runtime.serviceRunning,
-                        )
-                        StatusBadge(
-                            text = "${state.runtime.activeConfigIds.size} 个窗口",
-                            active = state.runtime.activeConfigIds.isNotEmpty(),
-                        )
-                    }
-                    state.runtime.foregroundPackage?.let {
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = when {
-                                state.runtime.matchedRulePackage == GLOBAL_RULE_PACKAGE ->
-                                    "全局规则正在生效"
-
-                                ruleControls -> "应用规则正在控制当前配置"
-                                else -> "前台应用：$it"
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    state.runtime.temporaryUnlockUntilEpochMs?.let { until ->
-                        Spacer(Modifier.height(8.dp))
-                        val seconds = ((until - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
-                        Text(
-                            text = "防误触临时解除中，约 $seconds 秒后恢复",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
+    AppScreenContainer(modifier = modifier) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = AppSpacing.md,
+                top = AppSpacing.lg,
+                end = AppSpacing.md,
+                bottom = AppSpacing.xl,
+            ),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.sm),
+        ) {
+            item { ScreenHeader("设置", "权限、前台服务与自动化选项") }
+            state.runtime.lastError?.let { error ->
+                item { ErrorBanner(text = error, onDismiss = onDismissError) }
             }
-        }
-        item {
-            InfoCard {
-                Column {
-                    Text("系统权限", style = MaterialTheme.typography.titleLarge)
-                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                    PermissionRow("悬浮窗", state.permissions.overlayGranted, onOverlayPermission)
-                    PermissionRow(
-                        "无障碍服务（防烧屏穿透）",
-                        state.permissions.accessibilityGranted,
-                        onAccessibilityPermission,
-                    )
-                    PermissionRow("使用情况访问", state.permissions.usageAccessGranted, onUsagePermission)
-                    PermissionRow("通知", state.permissions.notificationGranted, onNotificationPermission)
-                }
+            item {
+                ForegroundServiceCard(
+                    state = state,
+                    ruleControls = ruleControls,
+                    onServiceToggle = onServiceToggle,
+                )
             }
-        }
-        item {
-            InfoCard {
-                Column {
-                    Text("自动化", style = MaterialTheme.typography.titleLarge)
-                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                    SettingsSwitchRow(
-                        title = "开机自动恢复",
-                        description = "系统允许时在开机后恢复服务",
-                        checked = state.settings.autoStartOnBoot,
-                        onCheckedChange = onBootToggle,
-                    )
-                }
+            item {
+                PermissionsCard(
+                    state = state,
+                    onOverlayPermission = onOverlayPermission,
+                    onAccessibilityPermission = onAccessibilityPermission,
+                    onUsagePermission = onUsagePermission,
+                    onNotificationPermission = onNotificationPermission,
+                )
+            }
+            item {
+                AutomationCard(
+                    checked = state.settings.autoStartOnBoot,
+                    onCheckedChange = onBootToggle,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun SettingsSwitchRow(
-    title: String,
-    description: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
+private fun ForegroundServiceCard(
+    state: MainUiState,
+    ruleControls: Boolean,
+    onServiceToggle: (Boolean) -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    InfoCard(
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
+            ) {
+                IconTile(
+                    imageVector = Icons.Outlined.Layers,
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+                )
+                Column(Modifier.weight(1f)) {
+                    Text("前台服务", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        text = "统一承载全部悬浮窗",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = state.settings.serviceEnabled,
+                    onCheckedChange = onServiceToggle,
+                )
+            }
+            Spacer(Modifier.height(AppSpacing.sm))
+            Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
+                StatusBadge(
+                    text = if (state.runtime.serviceRunning) "运行中" else "未运行",
+                    active = state.runtime.serviceRunning,
+                )
+                StatusBadge(
+                    text = "${state.runtime.activeConfigIds.size} 个窗口",
+                    active = state.runtime.activeConfigIds.isNotEmpty(),
+                )
+            }
+            state.runtime.foregroundPackage?.let {
+                Spacer(Modifier.height(AppSpacing.xs))
+                Text(
+                    text = when {
+                        state.runtime.matchedRulePackage == GLOBAL_RULE_PACKAGE ->
+                            "全局规则正在生效"
+
+                        ruleControls -> "应用规则正在控制当前配置"
+                        else -> "前台应用：$it"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            state.runtime.temporaryUnlockUntilEpochMs?.let { until ->
+                Spacer(Modifier.height(AppSpacing.xs))
+                val seconds = ((until - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
+                Text(
+                    text = "防误触临时解除中，约 $seconds 秒后恢复",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PermissionsCard(
+    state: MainUiState,
+    onOverlayPermission: () -> Unit,
+    onAccessibilityPermission: () -> Unit,
+    onUsagePermission: () -> Unit,
+    onNotificationPermission: () -> Unit,
+) {
+    InfoCard {
+        Column {
+            Text("系统权限", style = MaterialTheme.typography.titleLarge)
             Text(
-                description,
+                text = "未授权的权限会在这里提示",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = AppSpacing.xs),
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
+            PermissionRow(
+                title = "悬浮窗",
+                granted = state.permissions.overlayGranted,
+                onRequest = onOverlayPermission,
+                icon = Icons.Outlined.Layers,
+            )
+            PermissionRow(
+                title = "无障碍服务（防烧屏穿透）",
+                granted = state.permissions.accessibilityGranted,
+                onRequest = onAccessibilityPermission,
+                icon = Icons.Outlined.TouchApp,
+            )
+            PermissionRow(
+                title = "使用情况访问",
+                granted = state.permissions.usageAccessGranted,
+                onRequest = onUsagePermission,
+                icon = Icons.Outlined.Insights,
+            )
+            PermissionRow(
+                title = "通知",
+                granted = state.permissions.notificationGranted,
+                onRequest = onNotificationPermission,
+                icon = Icons.Outlined.Notifications,
+            )
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+private fun AutomationCard(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    InfoCard {
+        Column {
+            Text("自动化", style = MaterialTheme.typography.titleLarge)
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = AppSpacing.xs),
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = AppSpacing.xxs),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
+            ) {
+                IconTile(
+                    imageVector = Icons.Outlined.RestartAlt,
+                    size = 40.dp,
+                )
+                Column(Modifier.weight(1f)) {
+                    Text("开机自动恢复", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = "系统允许时在开机后恢复服务",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = checked, onCheckedChange = onCheckedChange)
+            }
+        }
     }
 }

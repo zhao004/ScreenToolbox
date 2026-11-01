@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.zhao.screentoolbox.core.model.AppRule
 import com.zhao.screentoolbox.core.model.BurnMaskConfig
@@ -160,5 +161,31 @@ class AppsScreenTest {
         composeRule.runOnIdle {
             assertEquals(true, globalOpened)
         }
+    }
+
+    @Test
+    fun searchFiltersInstalledAppsByLabel() {
+        val target = InstalledAppInfo("com.example.target", "目标应用")
+        val other = InstalledAppInfo("com.example.other", "其他应用")
+        val state = MainUiState(
+            installedApps = listOf(target, other),
+            loadingApps = false,
+        )
+
+        composeRule.setContent {
+            ScreenToolboxTheme(darkTheme = false) {
+                AppsScreen(
+                    state = state,
+                    onUsagePermission = {},
+                    onConfigure = {},
+                    onConfigureGlobal = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription("搜索应用").performTextInput("目标")
+
+        composeRule.onNodeWithText("目标应用").assertIsDisplayed()
+        composeRule.onNodeWithText("其他应用").assertDoesNotExist()
     }
 }

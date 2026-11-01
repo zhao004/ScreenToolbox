@@ -848,7 +848,7 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
             0xFF1F2937,
             0xFF475569,
             0xFF1D4ED8,
-            0xFF2563EB,
+            0xFF1976D2,
             0xFF0284C7,
             0xFF0D9488,
             0xFF16A34A,

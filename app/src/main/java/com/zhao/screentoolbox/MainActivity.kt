@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.zhao.screentoolbox.ui.ScreenToolboxRoot
 import com.zhao.screentoolbox.ui.theme.ScreenToolboxTheme
 import com.zhao.screentoolbox.system.usage.AppVisibilityStore
@@ -15,6 +16,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var appVisibilityStore: AppVisibilityStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
