@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">屏幕工具箱</string>
+    <string name="notification_channel_name">悬浮窗运行状态</string>
+    <string name="notification_channel_description">显示屏幕工具箱的悬浮窗与服务状态</string>
+    <string name="notification_title">屏幕工具箱正在运行</string>
+    <string name="notification_text">已启用 %1$d 个悬浮窗</string>
+    <string name="notification_action_unlock">临时解除防误触</string>
+    <string name="notification_action_stop">关闭全部</string>
+</resources>
