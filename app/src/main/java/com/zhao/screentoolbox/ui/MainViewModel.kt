@@ -6,10 +6,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zhao.screentoolbox.core.model.AppRule
 import com.zhao.screentoolbox.core.model.AppSettings
+import com.zhao.screentoolbox.core.model.BurnMaskConfig
 import com.zhao.screentoolbox.core.model.InstalledAppInfo
+import com.zhao.screentoolbox.core.model.NormalizedRect
 import com.zhao.screentoolbox.core.model.OverlayConfig
 import com.zhao.screentoolbox.core.model.OverlayType
 import com.zhao.screentoolbox.core.model.PermissionSnapshot
+import com.zhao.screentoolbox.core.model.TouchBlockConfig
 import com.zhao.screentoolbox.domain.repository.AppRuleRepository
 import com.zhao.screentoolbox.domain.repository.OverlayRepository
 import com.zhao.screentoolbox.domain.repository.SettingsRepository
@@ -22,6 +25,7 @@ import com.zhao.screentoolbox.system.packageinfo.InstalledAppRepository
 import com.zhao.screentoolbox.system.permission.PermissionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -231,6 +235,54 @@ class MainViewModel @Inject constructor(
             runCatching { OverlayService.start(context) }
         }
         commandBus.send(OverlayCommand.Preview(config))
+    }
+
+    /** 新建防烧屏或防误触时直接进入系统悬浮编辑，不跳转应用内编辑页。 */
+    fun startRegionEditor(type: OverlayType) {
+        if (type != OverlayType.BURN_MASK && type != OverlayType.TOUCH_BLOCK) return
+        val config = when (type) {
+            OverlayType.BURN_MASK -> BurnMaskConfig(
+                id = UUID.randomUUID().toString(),
+                name = "防烧屏遮罩",
+                enabled = true,
+                rect = NormalizedRect(0.15f, 0.2f, 0.7f, 0.2f),
+            )
+
+            OverlayType.TOUCH_BLOCK -> TouchBlockConfig(
+                id = UUID.randomUUID().toString(),
+                name = "防误触区域",
+                enabled = true,
+                rect = NormalizedRect(0.1f, 0.4f, 0.8f, 0.2f),
+            )
+
+            OverlayType.WATERMARK -> return
+        }
+        launchRegionEditor(config, operation = "新建")
+    }
+
+    /** 编辑现有防烧屏或防误触配置时复用系统悬浮编辑面板。 */
+    fun startRegionEditor(config: OverlayConfig) {
+        if (config.type != OverlayType.BURN_MASK && config.type != OverlayType.TOUCH_BLOCK) {
+            return
+        }
+        launchRegionEditor(config, operation = "编辑")
+    }
+
+    private fun launchRegionEditor(config: OverlayConfig, operation: String) {
+        if (!permissionManager.canDrawOverlays()) {
+            messages.trySend("请先授权悬浮窗权限后再$operation")
+            return
+        }
+        if (!uiState.value.runtime.serviceRunning) {
+            runCatching { OverlayService.start(context) }
+                .onFailure {
+                    messages.trySend("悬浮编辑服务启动失败")
+                    return
+                }
+        }
+        if (!commandBus.send(OverlayCommand.StartRegionEditor(config))) {
+            messages.trySend("无法启动悬浮编辑面板")
+        }
     }
 
     fun endPreview() {

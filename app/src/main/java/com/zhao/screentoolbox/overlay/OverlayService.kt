@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import com.zhao.screentoolbox.core.model.AppRule
 import com.zhao.screentoolbox.core.model.AppSettings
 import com.zhao.screentoolbox.core.model.OverlayConfig
+import com.zhao.screentoolbox.core.model.OverlayType
 import com.zhao.screentoolbox.domain.repository.AppRuleRepository
 import com.zhao.screentoolbox.domain.repository.SettingsRepository
 import com.zhao.screentoolbox.domain.rules.AppRuleEngine
@@ -143,12 +144,18 @@ class OverlayService : Service() {
         serviceScope.launch {
             commandBus.commands.collect { command ->
                 when (command) {
+                    is OverlayCommand.StartRegionEditor -> {
+                        startRegionEditor(command.config)
+                    }
+
                     is OverlayCommand.Preview -> {
+                        overlayManager.removeEditorPanel()
                         previewConfig = command.config
                         reconcile()
                     }
 
                     OverlayCommand.EndPreview -> {
+                        overlayManager.removeEditorPanel()
                         previewConfig = null
                         reconcile()
                         if (!settings.serviceEnabled) {
@@ -180,9 +187,67 @@ class OverlayService : Service() {
         }
     }
 
+    /** 创建区域预览和控制面板，后续样式变化仍通过同一服务协调。 */
+    private fun startRegionEditor(config: OverlayConfig) {
+        if (config.type != OverlayType.BURN_MASK && config.type != OverlayType.TOUCH_BLOCK) {
+            return
+        }
+        previewConfig = config
+        reconcile()
+        overlayManager.showEditorPanel(
+            config = config,
+            onConfigChanged = { updated ->
+                previewConfig = updated
+                reconcile()
+            },
+            onSave = {
+                serviceScope.launch { saveRegionEditor() }
+            },
+            onCancel = {
+                serviceScope.launch { cancelRegionEditor() }
+            },
+        )
+        log("REGION_EDITOR_START", config.type.name)
+    }
+
+    private suspend fun saveRegionEditor() {
+        val config = previewConfig ?: return
+        if (config.type != OverlayType.BURN_MASK && config.type != OverlayType.TOUCH_BLOCK) {
+            return
+        }
+        runCatching { overlayRepository.upsert(config) }
+            .onFailure {
+                runtimeStore.update { state ->
+                    state.copy(lastError = "保存悬浮编辑配置失败")
+                }
+                log("REGION_EDITOR_SAVE_FAILED", config.type.name)
+                return
+            }
+        overlayManager.removeEditorPanel()
+        previewConfig = null
+        log("REGION_EDITOR_SAVE", config.type.name)
+        if (settings.serviceEnabled) {
+            reconcile()
+        } else {
+            stopAllInternal()
+        }
+    }
+
+    private suspend fun cancelRegionEditor() {
+        overlayManager.removeEditorPanel()
+        previewConfig = null
+        log("REGION_EDITOR_CANCEL")
+        if (settings.serviceEnabled) {
+            reconcile()
+        } else {
+            stopAllInternal()
+        }
+    }
+
     /** 重新计算期望窗口，窗口差异由 OverlayManager 统一落地。 */
     private fun reconcile() {
         if (!permissionManager.canDrawOverlays()) {
+            previewConfig = null
             overlayManager.removeAll()
             runtimeStore.update {
                 it.copy(

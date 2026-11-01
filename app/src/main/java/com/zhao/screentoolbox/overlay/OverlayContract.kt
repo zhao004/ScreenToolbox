@@ -2,7 +2,6 @@ package com.zhao.screentoolbox.overlay
 
 import android.view.View
 import android.view.WindowManager
-import com.zhao.screentoolbox.core.model.NormalizedRect
 import com.zhao.screentoolbox.core.model.OverlayConfig
 import com.zhao.screentoolbox.core.model.OverlayType
 import javax.inject.Inject
@@ -30,6 +29,7 @@ data class OverlayEntry(
 
 sealed interface OverlayCommand {
     data class Preview(val config: OverlayConfig) : OverlayCommand
+    data class StartRegionEditor(val config: OverlayConfig) : OverlayCommand
     data object EndPreview : OverlayCommand
     data object TemporaryUnlock : OverlayCommand
     data object EndTemporaryUnlock : OverlayCommand
@@ -49,12 +49,6 @@ class OverlayCommandBus @Inject constructor() {
     fun send(command: OverlayCommand): Boolean = channel.trySend(command).isSuccess
 }
 
-data class OverlayGeometryEvent(
-    val configId: String,
-    val rect: NormalizedRect,
-    val revision: Long,
-)
-
 data class OverlayRuntimeState(
     val serviceRunning: Boolean = false,
     val activeConfigIds: Set<String> = emptySet(),
@@ -63,7 +57,6 @@ data class OverlayRuntimeState(
     val ruleControlledTypes: Set<OverlayType> = emptySet(),
     val temporaryUnlockUntilEpochMs: Long? = null,
     val lastError: String? = null,
-    val geometryEvent: OverlayGeometryEvent? = null,
 )
 
 /** 运行状态只保存在内存中，配置持久化仍由 Repository 负责。 */
@@ -71,23 +64,9 @@ data class OverlayRuntimeState(
 class OverlayRuntimeStore @Inject constructor() {
     private val mutableState = MutableStateFlow(OverlayRuntimeState())
     val state: StateFlow<OverlayRuntimeState> = mutableState.asStateFlow()
-    private var geometryRevision = 0L
 
     fun update(transform: (OverlayRuntimeState) -> OverlayRuntimeState) {
         mutableState.value = transform(mutableState.value)
-    }
-
-    fun reportGeometry(configId: String, rect: NormalizedRect) {
-        geometryRevision += 1
-        update {
-            it.copy(
-                geometryEvent = OverlayGeometryEvent(
-                    configId = configId,
-                    rect = rect,
-                    revision = geometryRevision,
-                ),
-            )
-        }
     }
 
     fun clearError() = update { it.copy(lastError = null) }

@@ -4,11 +4,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.PowerSettingsNew
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -16,6 +19,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -27,23 +31,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.zhao.screentoolbox.BuildConfig
 import com.zhao.screentoolbox.ui.MainUiState
 import com.zhao.screentoolbox.ui.components.InfoCard
 import com.zhao.screentoolbox.ui.components.PermissionRow
 import com.zhao.screentoolbox.ui.components.ScreenHeader
-import com.zhao.screentoolbox.ui.components.StatusBadge
 import com.zhao.screentoolbox.ui.theme.DangerRed
 
 @Composable
 fun SettingsScreen(
     state: MainUiState,
-    onServiceToggle: (Boolean) -> Unit,
     onAutoAssociationToggle: (Boolean) -> Unit,
     onBootToggle: (Boolean) -> Unit,
     onOverlayPermission: () -> Unit,
     onUsagePermission: () -> Unit,
     onNotificationPermission: () -> Unit,
+    onTemporaryUnlock: () -> Unit,
     onEmergencyStop: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -53,31 +55,7 @@ fun SettingsScreen(
         contentPadding = PaddingValues(16.dp, 20.dp, 16.dp, 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { ScreenHeader("设置", "权限、自动化和服务运行选项") }
-        item {
-            InfoCard {
-                Column {
-                    SettingsSwitchRow(
-                        title = "启用悬浮窗服务",
-                        description = "启动前台服务并加载所有已启用配置",
-                        checked = state.settings.serviceEnabled,
-                        onCheckedChange = onServiceToggle,
-                    )
-                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text("运行状态", style = MaterialTheme.typography.titleMedium)
-                        StatusBadge(
-                            if (state.runtime.serviceRunning) "运行中" else "已停止",
-                            state.runtime.serviceRunning,
-                        )
-                    }
-                }
-            }
-        }
+        item { ScreenHeader("设置", "权限和自动化选项") }
         item {
             InfoCard {
                 Column {
@@ -110,38 +88,32 @@ fun SettingsScreen(
             }
         }
         item {
-            InfoCard(containerColor = DangerRed.copy(alpha = 0.08f)) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("紧急操作", style = MaterialTheme.typography.titleLarge)
-                    Text(
-                        "立即停止服务并移除所有系统悬浮窗。",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Button(
-                        onClick = { confirmStop = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
-                    ) {
-                        Icon(Icons.Outlined.PowerSettingsNew, contentDescription = null)
-                        Text("关闭全部悬浮窗")
-                    }
-                }
-            }
-        }
-        item {
             InfoCard {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("兼容性说明", style = MaterialTheme.typography.titleLarge)
-                    Text(
-                        "非触摸悬浮窗可能受 Android 12 及以上触摸安全策略影响；开机恢复和前台识别也受系统及厂商后台限制。",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        "ScreenToolbox ${BuildConfig.VERSION_NAME}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("快捷操作", style = MaterialTheme.typography.titleLarge)
+                    HorizontalDivider()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        OutlinedButton(
+                            onClick = onTemporaryUnlock,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Icon(Icons.Outlined.LockOpen, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("解除 30 秒")
+                        }
+                        Button(
+                            onClick = { confirmStop = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Icon(Icons.Outlined.PowerSettingsNew, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("关闭全部")
+                        }
+                    }
                 }
             }
         }

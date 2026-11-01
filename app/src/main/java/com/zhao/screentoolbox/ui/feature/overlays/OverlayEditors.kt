@@ -26,7 +26,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -36,123 +35,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.zhao.screentoolbox.core.model.BurnMaskConfig
-import com.zhao.screentoolbox.core.model.NormalizedRect
-import com.zhao.screentoolbox.core.model.TouchBlockConfig
 import com.zhao.screentoolbox.core.model.WatermarkConfig
 import com.zhao.screentoolbox.core.model.WatermarkMode
-import com.zhao.screentoolbox.core.model.withRect
-import com.zhao.screentoolbox.overlay.OverlayGeometryEvent
 import com.zhao.screentoolbox.ui.components.InfoCard
-
-@Composable
-fun BurnEditorScreen(
-    initial: BurnMaskConfig,
-    geometryEvent: OverlayGeometryEvent?,
-    onPreview: (BurnMaskConfig) -> Unit,
-    onEndPreview: () -> Unit,
-    onSave: (BurnMaskConfig) -> Unit,
-    onBack: () -> Unit,
-) {
-    var draft by remember(initial.id) { mutableStateOf(initial) }
-    LaunchedEffect(geometryEvent?.revision) {
-        if (geometryEvent?.configId == draft.id) {
-            draft = draft.copy(rect = geometryEvent.rect)
-        }
-    }
-    LaunchedEffect(draft) { onPreview(draft) }
-    DisposableEffect(Unit) {
-        onDispose(onEndPreview)
-    }
-    EditorFrame(
-        title = if (initial.name.isBlank()) "新建防烧屏" else "编辑防烧屏",
-        onBack = {
-            onEndPreview()
-            onBack()
-        },
-        onSave = {
-            onEndPreview()
-            onSave(draft)
-            onBack()
-        },
-    ) {
-        NameField(draft.name) { draft = draft.copy(name = it) }
-        ColorField(draft.colorArgb) { draft = draft.copy(colorArgb = it) }
-        PercentSlider("透明度", draft.alpha) { draft = draft.copy(alpha = it) }
-        ValueSlider("圆角", draft.cornerRadiusDp, 0f, 64f, "dp") {
-            draft = draft.copy(cornerRadiusDp = it)
-        }
-        GeometrySliders(draft.rect) { draft = draft.withRect(it) as BurnMaskConfig }
-        Text(
-            "编辑时可在系统悬浮窗上拖动，并通过四角手柄调整尺寸；页面参数会实时预览。",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-fun TouchEditorScreen(
-    initial: TouchBlockConfig,
-    geometryEvent: OverlayGeometryEvent?,
-    onPreview: (TouchBlockConfig) -> Unit,
-    onEndPreview: () -> Unit,
-    onSave: (TouchBlockConfig) -> Unit,
-    onBack: () -> Unit,
-) {
-    var draft by remember(initial.id) { mutableStateOf(initial) }
-    LaunchedEffect(geometryEvent?.revision) {
-        if (geometryEvent?.configId == draft.id) {
-            draft = draft.copy(rect = geometryEvent.rect)
-        }
-    }
-    LaunchedEffect(draft) { onPreview(draft) }
-    DisposableEffect(Unit) {
-        onDispose(onEndPreview)
-    }
-    EditorFrame(
-        title = if (initial.name.isBlank()) "新建防误触" else "编辑防误触",
-        onBack = {
-            onEndPreview()
-            onBack()
-        },
-        onSave = {
-            onEndPreview()
-            onSave(draft)
-            onBack()
-        },
-    ) {
-        NameField(draft.name) { draft = draft.copy(name = it) }
-        GeometrySliders(draft.rect) { draft = draft.withRect(it) as TouchBlockConfig }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("显示区域边界", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "运行时保留淡蓝色边框，便于识别屏蔽范围。",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Switch(
-                checked = draft.boundaryVisible,
-                onCheckedChange = { draft = draft.copy(boundaryVisible = it) },
-            )
-        }
-        Text(
-            "编辑时可在系统悬浮窗上拖动和缩放。生效后区域内触摸会被拦截，区域外保持原应用交互。",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
 
 @Composable
 fun WatermarkEditorScreen(
@@ -283,27 +171,6 @@ private fun NameField(value: String, onChange: (String) -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
     )
-}
-
-@Composable
-private fun GeometrySliders(rect: NormalizedRect, onRect: (NormalizedRect) -> Unit) {
-    InfoCard {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("位置与尺寸", style = MaterialTheme.typography.titleMedium)
-            PercentSlider("水平位置", rect.x) {
-                onRect(rect.copy(x = it).sanitized())
-            }
-            PercentSlider("垂直位置", rect.y) {
-                onRect(rect.copy(y = it).sanitized())
-            }
-            ValueSlider("宽度", rect.width, 0.05f, 1f, "%", divisor = 0.01f) {
-                onRect(rect.copy(width = it).sanitized())
-            }
-            ValueSlider("高度", rect.height, 0.05f, 1f, "%", divisor = 0.01f) {
-                onRect(rect.copy(height = it).sanitized())
-            }
-        }
-    }
 }
 
 @Composable

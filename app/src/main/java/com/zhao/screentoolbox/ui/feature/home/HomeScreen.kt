@@ -11,18 +11,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.BorderClear
 import androidx.compose.material.icons.outlined.Layers
-import androidx.compose.material.icons.outlined.LockOpen
-import androidx.compose.material.icons.outlined.PowerSettingsNew
 import androidx.compose.material.icons.outlined.WaterDrop
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,24 +27,15 @@ import com.zhao.screentoolbox.core.model.OverlayType
 import com.zhao.screentoolbox.ui.MainUiState
 import com.zhao.screentoolbox.ui.components.ErrorBanner
 import com.zhao.screentoolbox.ui.components.InfoCard
-import com.zhao.screentoolbox.ui.components.PermissionRow
 import com.zhao.screentoolbox.ui.components.ScreenHeader
 import com.zhao.screentoolbox.ui.components.StatusBadge
 import com.zhao.screentoolbox.ui.theme.BrandBlue
-import com.zhao.screentoolbox.ui.theme.DangerRed
-import com.zhao.screentoolbox.ui.theme.SuccessGreen
-import com.zhao.screentoolbox.ui.theme.WarningAmber
 
 @Composable
 fun HomeScreen(
     state: MainUiState,
     onServiceToggle: (Boolean) -> Unit,
     onFeatureToggle: (OverlayType, Boolean) -> Unit,
-    onTemporaryUnlock: () -> Unit,
-    onEmergencyStop: () -> Unit,
-    onOverlayPermission: () -> Unit,
-    onUsagePermission: () -> Unit,
-    onNotificationPermission: () -> Unit,
     onDismissError: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -142,41 +126,6 @@ fun HomeScreen(
                 enabled = !ruleControls,
                 onCheckedChange = { onFeatureToggle(OverlayType.WATERMARK, it) },
             )
-        }
-        item {
-            InfoCard {
-                Column {
-                    Text("权限", style = MaterialTheme.typography.titleLarge)
-                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                    PermissionRow("悬浮窗权限", state.permissions.overlayGranted, onOverlayPermission)
-                    PermissionRow("使用情况访问", state.permissions.usageAccessGranted, onUsagePermission)
-                    PermissionRow("通知权限", state.permissions.notificationGranted, onNotificationPermission)
-                }
-            }
-        }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                OutlinedButton(
-                    onClick = onTemporaryUnlock,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(Icons.Outlined.LockOpen, contentDescription = null)
-                    Spacer(Modifier.padding(4.dp))
-                    Text("解除 30 秒")
-                }
-                Button(
-                    onClick = onEmergencyStop,
-                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(Icons.Outlined.PowerSettingsNew, contentDescription = null)
-                    Spacer(Modifier.padding(4.dp))
-                    Text("关闭全部")
-                }
-            }
         }
     }
 }

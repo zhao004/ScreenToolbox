@@ -41,7 +41,6 @@ import androidx.navigation.compose.rememberNavController
 import com.zhao.screentoolbox.core.model.AppRule
 import com.zhao.screentoolbox.core.model.BurnMaskConfig
 import com.zhao.screentoolbox.core.model.InstalledAppInfo
-import com.zhao.screentoolbox.core.model.NormalizedRect
 import com.zhao.screentoolbox.core.model.OverlayConfig
 import com.zhao.screentoolbox.core.model.OverlayType
 import com.zhao.screentoolbox.core.model.TouchBlockConfig
@@ -49,9 +48,7 @@ import com.zhao.screentoolbox.core.model.WatermarkConfig
 import com.zhao.screentoolbox.ui.feature.apps.AppRuleEditorScreen
 import com.zhao.screentoolbox.ui.feature.apps.AppsScreen
 import com.zhao.screentoolbox.ui.feature.home.HomeScreen
-import com.zhao.screentoolbox.ui.feature.overlays.BurnEditorScreen
 import com.zhao.screentoolbox.ui.feature.overlays.OverlaysScreen
-import com.zhao.screentoolbox.ui.feature.overlays.TouchEditorScreen
 import com.zhao.screentoolbox.ui.feature.overlays.WatermarkEditorScreen
 import com.zhao.screentoolbox.ui.feature.settings.SettingsScreen
 import java.util.UUID
@@ -61,13 +58,9 @@ private object Routes {
     const val Overlays = "overlays"
     const val Apps = "apps"
     const val Settings = "settings"
-    const val BurnEditor = "burn/{id}"
-    const val TouchEditor = "touch/{id}"
     const val WatermarkEditor = "watermark/{id}"
     const val AppRuleEditor = "rule/{packageName}/{label}"
 
-    fun burn(id: String) = "burn/$id"
-    fun touch(id: String) = "touch/$id"
     fun watermark(id: String) = "watermark/$id"
     fun rule(app: InstalledAppInfo) = "rule/${Uri.encode(app.packageName)}/${Uri.encode(app.label)}"
 }
@@ -156,15 +149,6 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
                     state = state,
                     onServiceToggle = viewModel::setServiceEnabled,
                     onFeatureToggle = viewModel::setFeatureEnabled,
-                    onTemporaryUnlock = viewModel::temporaryUnlock,
-                    onEmergencyStop = viewModel::emergencyStop,
-                    onOverlayPermission = {
-                        context.startActivity(viewModel.overlaySettingsIntent())
-                    },
-                    onUsagePermission = {
-                        context.startActivity(viewModel.usageAccessIntent())
-                    },
-                    onNotificationPermission = requestNotificationPermission,
                     onDismissError = viewModel::clearRuntimeError,
                 )
             }
@@ -172,22 +156,24 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
                 OverlaysScreen(
                     state = state,
                     onAdd = { type ->
-                        navController.navigate(
-                            when (type) {
-                                OverlayType.BURN_MASK -> Routes.burn("new")
-                                OverlayType.TOUCH_BLOCK -> Routes.touch("new")
-                                OverlayType.WATERMARK -> Routes.watermark("new")
-                            },
-                        )
+                        when (type) {
+                            OverlayType.BURN_MASK,
+                            OverlayType.TOUCH_BLOCK -> viewModel.startRegionEditor(type)
+
+                            OverlayType.WATERMARK -> {
+                                navController.navigate(Routes.watermark("new"))
+                            }
+                        }
                     },
                     onEdit = { config ->
-                        navController.navigate(
-                            when (config) {
-                                is BurnMaskConfig -> Routes.burn(config.id)
-                                is TouchBlockConfig -> Routes.touch(config.id)
-                                is WatermarkConfig -> Routes.watermark(config.id)
-                            },
-                        )
+                        when (config) {
+                            is BurnMaskConfig,
+                            is TouchBlockConfig -> viewModel.startRegionEditor(config)
+
+                            is WatermarkConfig -> {
+                                navController.navigate(Routes.watermark(config.id))
+                            }
+                        }
                     },
                     onToggle = viewModel::toggleOverlay,
                     onDelete = viewModel::deleteOverlay,
@@ -205,7 +191,6 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
             composable(Routes.Settings) {
                 SettingsScreen(
                     state = state,
-                    onServiceToggle = viewModel::setServiceEnabled,
                     onAutoAssociationToggle = viewModel::setAutoAssociationEnabled,
                     onBootToggle = viewModel::setAutoStartOnBoot,
                     onOverlayPermission = {
@@ -215,60 +200,9 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
                         context.startActivity(viewModel.usageAccessIntent())
                     },
                     onNotificationPermission = requestNotificationPermission,
+                    onTemporaryUnlock = viewModel::temporaryUnlock,
                     onEmergencyStop = viewModel::emergencyStop,
                 )
-            }
-            composable(Routes.BurnEditor) { entry ->
-                val id = entry.arguments?.getString("id").orEmpty()
-                val existing = state.overlays.filterIsInstance<BurnMaskConfig>().firstOrNull { it.id == id }
-                val initial = if (id == "new") {
-                    remember(id) {
-                        BurnMaskConfig(
-                            id = UUID.randomUUID().toString(),
-                            name = "",
-                            enabled = true,
-                            rect = NormalizedRect(0.15f, 0.2f, 0.7f, 0.2f),
-                        )
-                    }
-                } else {
-                    existing
-                }
-                if (initial != null) {
-                    BurnEditorScreen(
-                        initial = initial,
-                        geometryEvent = state.runtime.geometryEvent,
-                        onPreview = viewModel::previewOverlay,
-                        onEndPreview = viewModel::endPreview,
-                        onSave = viewModel::upsertOverlay,
-                        onBack = { navController.popBackStack() },
-                    )
-                }
-            }
-            composable(Routes.TouchEditor) { entry ->
-                val id = entry.arguments?.getString("id").orEmpty()
-                val existing = state.overlays.filterIsInstance<TouchBlockConfig>().firstOrNull { it.id == id }
-                val initial = if (id == "new") {
-                    remember(id) {
-                        TouchBlockConfig(
-                            id = UUID.randomUUID().toString(),
-                            name = "",
-                            enabled = true,
-                            rect = NormalizedRect(0.1f, 0.4f, 0.8f, 0.2f),
-                        )
-                    }
-                } else {
-                    existing
-                }
-                if (initial != null) {
-                    TouchEditorScreen(
-                        initial = initial,
-                        geometryEvent = state.runtime.geometryEvent,
-                        onPreview = viewModel::previewOverlay,
-                        onEndPreview = viewModel::endPreview,
-                        onSave = viewModel::upsertOverlay,
-                        onBack = { navController.popBackStack() },
-                    )
-                }
             }
             composable(Routes.WatermarkEditor) { entry ->
                 val id = entry.arguments?.getString("id").orEmpty()
