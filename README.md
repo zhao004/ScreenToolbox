@@ -46,6 +46,37 @@ Shizuku 或云端服务。
 Debug APK 由 Android Gradle Plugin 的标准输出目录生成。Release 构建已验证，但
 正式发布前仍需配置用户自己的签名密钥。
 
+### 发布构建
+
+发布工作流位于 `.github/workflows/android-release.yml`，支持推送 `vX.Y.Z`
+标签或手动指定既有标签。工作流使用 JDK 17，先运行单元测试与 Lint，再生成
+`arm64-v8a` 和 `armeabi-v7a` 两个独立 APK，不生成通用 APK 或 AAB。
+
+首次发布前需在 GitHub 仓库中创建 `android_build` Environment，并配置以下
+Environment Secrets：
+
+- `ANDROID_KEYSTORE_BASE64`：Release keystore 文件的 Base64 内容。
+- `ANDROID_KEYSTORE_PASSWORD`：keystore 密码。
+- `ANDROID_KEY_ALIAS`：签名密钥别名。
+- `ANDROID_KEY_PASSWORD`：签名密钥密码。
+
+工作流会校验两个 APK 的签名，生成 `SHA256SUMS.txt`，并把以下文件发布到
+GitHub Release：
+
+- `ScreenToolbox-<tag>-arm64-v8a.apk`
+- `ScreenToolbox-<tag>-armeabi-v7a.apk`
+- `SHA256SUMS.txt`
+
+本地需要验证分 ABI 构建时，可通过环境变量提供签名配置后执行：
+
+```powershell
+.\gradlew.bat :app:assembleRelease -PandroidAbiSplit=true
+```
+
+`RELEASE_VERSION_NAME` 和 `RELEASE_VERSION_CODE` 可由构建环境覆盖，未设置时
+分别使用 `1.0.0` 和 `1`。签名环境变量必须同时配置；部分配置或密钥路径无效时
+构建会直接失败，不会回退到 Debug 签名。
+
 ## 架构边界
 
 - Compose 只负责应用内 UI，System Overlay 使用 Android View + WindowManager。
