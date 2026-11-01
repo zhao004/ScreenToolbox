@@ -31,7 +31,6 @@ class DataStoreSettingsRepository @Inject constructor(
         .map { preferences ->
             AppSettings(
                 serviceEnabled = preferences[Keys.ServiceEnabled] ?: false,
-                autoAssociationEnabled = preferences[Keys.AutoAssociationEnabled] ?: false,
                 autoStartOnBoot = preferences[Keys.AutoStartOnBoot] ?: false,
                 burnMaskGloballyEnabled = preferences[Keys.BurnMaskEnabled] ?: true,
                 touchBlockGloballyEnabled = preferences[Keys.TouchBlockEnabled] ?: true,
@@ -40,7 +39,6 @@ class DataStoreSettingsRepository @Inject constructor(
         }
 
     override suspend fun setServiceEnabled(enabled: Boolean) = put(Keys.ServiceEnabled, enabled)
-    override suspend fun setAutoAssociationEnabled(enabled: Boolean) = put(Keys.AutoAssociationEnabled, enabled)
     override suspend fun setAutoStartOnBoot(enabled: Boolean) = put(Keys.AutoStartOnBoot, enabled)
 
     override suspend fun setFeatureEnabled(type: OverlayType, enabled: Boolean) {
@@ -58,7 +56,6 @@ class DataStoreSettingsRepository @Inject constructor(
 
     private object Keys {
         val ServiceEnabled = booleanPreferencesKey("service_enabled")
-        val AutoAssociationEnabled = booleanPreferencesKey("auto_association_enabled")
         val AutoStartOnBoot = booleanPreferencesKey("auto_start_on_boot")
         val BurnMaskEnabled = booleanPreferencesKey("burn_mask_globally_enabled")
         val TouchBlockEnabled = booleanPreferencesKey("touch_block_globally_enabled")

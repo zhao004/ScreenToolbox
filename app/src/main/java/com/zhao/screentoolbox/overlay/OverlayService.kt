@@ -77,6 +77,7 @@ class OverlayService : Service() {
     private var settings = AppSettings()
     private var foregroundPackage: String? = null
     private var previewConfig: OverlayConfig? = null
+    private var regionEditorShowsOpacityControl = false
     private var temporaryUnlockUntil: Long? = null
     private var unlockJob: Job? = null
 
@@ -145,11 +146,12 @@ class OverlayService : Service() {
             commandBus.commands.collect { command ->
                 when (command) {
                     is OverlayCommand.StartRegionEditor -> {
-                        startRegionEditor(command.config)
+                        startRegionEditor(command.config, command.showOpacityControl)
                     }
 
                     is OverlayCommand.Preview -> {
                         overlayManager.removeEditorPanel()
+                        regionEditorShowsOpacityControl = false
                         previewConfig = command.config
                         reconcile()
                     }
@@ -177,7 +179,7 @@ class OverlayService : Service() {
                             !overlayManager.isEditorPanelVisible() &&
                             canRestoreEditor
                         ) {
-                            startRegionEditor(editorConfig)
+                            startRegionEditor(editorConfig, regionEditorShowsOpacityControl)
                         }
                         log("ACCESSIBILITY_HOST_CHANGED")
                     }
@@ -204,14 +206,19 @@ class OverlayService : Service() {
     }
 
     /** 创建区域预览和控制面板，后续样式变化仍通过同一服务协调。 */
-    private fun startRegionEditor(config: OverlayConfig) {
+    private fun startRegionEditor(
+        config: OverlayConfig,
+        showOpacityControl: Boolean,
+    ) {
         if (config.type != OverlayType.BURN_MASK && config.type != OverlayType.TOUCH_BLOCK) {
             return
         }
+        regionEditorShowsOpacityControl = showOpacityControl
         previewConfig = config
         reconcile()
         overlayManager.showEditorPanel(
             config = config,
+            showOpacityControl = showOpacityControl,
             onConfigChanged = { updated ->
                 previewConfig = updated
                 reconcile()
@@ -241,6 +248,7 @@ class OverlayService : Service() {
             }
         overlayManager.removeEditorPanel()
         previewConfig = null
+        regionEditorShowsOpacityControl = false
         log("REGION_EDITOR_SAVE", config.type.name)
         if (settings.serviceEnabled) {
             reconcile()
@@ -252,6 +260,7 @@ class OverlayService : Service() {
     private suspend fun cancelRegionEditor() {
         overlayManager.removeEditorPanel()
         previewConfig = null
+        regionEditorShowsOpacityControl = false
         log("REGION_EDITOR_CANCEL")
         if (settings.serviceEnabled) {
             reconcile()
@@ -276,10 +285,7 @@ class OverlayService : Service() {
             updateNotification()
             return
         }
-        if (settings.autoAssociationEnabled &&
-            foregroundPackage != null &&
-            !permissionManager.hasUsageAccess()
-        ) {
+        if (rules.any { it.enabled } && !permissionManager.hasUsageAccess()) {
             runtimeStore.update {
                 it.copy(lastError = "使用情况访问权限不可用，无法识别前台应用")
             }
@@ -341,6 +347,7 @@ class OverlayService : Service() {
         unlockJob = null
         temporaryUnlockUntil = null
         previewConfig = null
+        regionEditorShowsOpacityControl = false
         overlayManager.removeAll()
         runtimeStore.update {
             OverlayRuntimeState(serviceRunning = false)

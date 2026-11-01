@@ -191,7 +191,6 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
             composable(Routes.Settings) {
                 SettingsScreen(
                     state = state,
-                    onAutoAssociationToggle = viewModel::setAutoAssociationEnabled,
                     onBootToggle = viewModel::setAutoStartOnBoot,
                     onOverlayPermission = {
                         context.startActivity(viewModel.overlaySettingsIntent())
@@ -203,8 +202,6 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
                         context.startActivity(viewModel.usageAccessIntent())
                     },
                     onNotificationPermission = requestNotificationPermission,
-                    onTemporaryUnlock = viewModel::temporaryUnlock,
-                    onEmergencyStop = viewModel::emergencyStop,
                 )
             }
             composable(Routes.WatermarkEditor) { entry ->

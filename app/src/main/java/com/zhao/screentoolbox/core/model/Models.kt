@@ -81,6 +81,7 @@ data class BurnMaskConfig(
     override val rect: NormalizedRect,
     val colorArgb: Long = 0xFF000000,
     val cornerRadiusDp: Float = 12f,
+    val alpha: Float = 1f,
 ) : OverlayConfig {
     override val type: OverlayType = OverlayType.BURN_MASK
 }
@@ -91,6 +92,7 @@ data class TouchBlockConfig(
     override val enabled: Boolean,
     override val rect: NormalizedRect,
     val boundaryVisible: Boolean = true,
+    val alpha: Float = 0f,
 ) : OverlayConfig {
     override val type: OverlayType = OverlayType.TOUCH_BLOCK
 }
@@ -143,7 +145,6 @@ data class InstalledAppInfo(
 
 data class AppSettings(
     val serviceEnabled: Boolean = false,
-    val autoAssociationEnabled: Boolean = false,
     val autoStartOnBoot: Boolean = false,
     val burnMaskGloballyEnabled: Boolean = true,
     val touchBlockGloballyEnabled: Boolean = true,

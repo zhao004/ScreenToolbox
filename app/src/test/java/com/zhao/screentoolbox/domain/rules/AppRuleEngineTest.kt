@@ -34,7 +34,7 @@ class AppRuleEngineTest {
                 }
             },
             rules = listOf(rule),
-            settings = AppSettings(autoAssociationEnabled = true),
+            settings = AppSettings(),
             foregroundPackage = "target.app",
             ownPackage = "self.app",
             temporaryUnlockActive = false,
@@ -73,7 +73,7 @@ class AppRuleEngineTest {
         val resolution = engine.resolve(
             configs = configs,
             rules = listOf(rule),
-            settings = AppSettings(autoAssociationEnabled = true),
+            settings = AppSettings(),
             foregroundPackage = "other.app",
             ownPackage = "self.app",
             temporaryUnlockActive = false,
@@ -84,24 +84,26 @@ class AppRuleEngineTest {
     }
 
     @Test
-    fun bindingScopeRemainsActiveWhenAppAssociationIsDisabled() {
+    fun disabledRuleDoesNotMatchButKeepsItsConfigsScoped() {
         val rule = AppRule(
             id = 1,
             packageName = "target.app",
             displayName = "Target",
+            enabled = false,
             configIds = setOf("watermark"),
         )
 
         val resolution = engine.resolve(
             configs = configs,
             rules = listOf(rule),
-            settings = AppSettings(autoAssociationEnabled = false),
+            settings = AppSettings(),
             foregroundPackage = "target.app",
             ownPackage = "self.app",
             temporaryUnlockActive = false,
             preview = null,
         )
 
+        assertEquals(null, resolution.matchedRulePackage)
         assertEquals(setOf("burn", "touch"), resolution.activeConfigs.map { it.id }.toSet())
     }
 
@@ -126,7 +128,7 @@ class AppRuleEngineTest {
         val resolution = engine.resolve(
             configs = configs,
             rules = emptyList(),
-            settings = AppSettings(autoAssociationEnabled = true),
+            settings = AppSettings(),
             foregroundPackage = "self.app",
             ownPackage = "self.app",
             temporaryUnlockActive = true,

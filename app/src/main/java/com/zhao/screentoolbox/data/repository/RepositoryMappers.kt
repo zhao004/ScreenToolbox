@@ -16,7 +16,8 @@ import com.zhao.screentoolbox.data.database.OverlayRegionEntity
 import com.zhao.screentoolbox.data.database.TouchBlockStyleEntity
 import com.zhao.screentoolbox.data.database.WatermarkStyleEntity
 
-private const val OPAQUE_BURN_MASK_ALPHA = 1f
+private const val DEFAULT_BURN_MASK_ALPHA = 1f
+private const val DEFAULT_TOUCH_BLOCK_ALPHA = 0f
 
 internal fun OverlayConfigWithDetails.toDomain(): OverlayConfig {
     val geometry = region?.let {
@@ -27,7 +28,7 @@ internal fun OverlayConfigWithDetails.toDomain(): OverlayConfig {
             val style = burnStyle ?: BurnMaskStyleEntity(
                 config.id,
                 0xFF000000,
-                OPAQUE_BURN_MASK_ALPHA,
+                DEFAULT_BURN_MASK_ALPHA,
                 12f,
             )
             BurnMaskConfig(
@@ -37,6 +38,7 @@ internal fun OverlayConfigWithDetails.toDomain(): OverlayConfig {
                 rect = geometry,
                 colorArgb = style.colorArgb,
                 cornerRadiusDp = style.cornerRadiusDp,
+                alpha = style.alpha.coerceIn(0f, 1f),
             )
         }
 
@@ -46,6 +48,7 @@ internal fun OverlayConfigWithDetails.toDomain(): OverlayConfig {
             enabled = config.enabled,
             rect = geometry,
             boundaryVisible = touchStyle?.boundaryVisible ?: true,
+            alpha = (touchStyle?.alpha ?: DEFAULT_TOUCH_BLOCK_ALPHA).coerceIn(0f, 1f),
         )
 
         OverlayType.WATERMARK -> {
@@ -136,7 +139,7 @@ internal fun OverlayConfig.toEntityParts(
             burnStyle = BurnMaskStyleEntity(
                 id,
                 colorArgb,
-                OPAQUE_BURN_MASK_ALPHA,
+                alpha.coerceIn(0f, 1f),
                 cornerRadiusDp.coerceAtLeast(0f),
             ),
         )
@@ -144,7 +147,11 @@ internal fun OverlayConfig.toEntityParts(
         is TouchBlockConfig -> OverlayEntityParts(
             config = common,
             region = region,
-            touchStyle = TouchBlockStyleEntity(id, boundaryVisible),
+            touchStyle = TouchBlockStyleEntity(
+                configId = id,
+                boundaryVisible = boundaryVisible,
+                alpha = alpha.coerceIn(0f, 1f),
+            ),
         )
 
         is WatermarkConfig -> OverlayEntityParts(

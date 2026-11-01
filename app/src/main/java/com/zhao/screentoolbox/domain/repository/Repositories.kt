@@ -27,7 +27,6 @@ interface SettingsRepository {
     val settings: Flow<AppSettings>
 
     suspend fun setServiceEnabled(enabled: Boolean)
-    suspend fun setAutoAssociationEnabled(enabled: Boolean)
     suspend fun setAutoStartOnBoot(enabled: Boolean)
     suspend fun setFeatureEnabled(type: com.zhao.screentoolbox.core.model.OverlayType, enabled: Boolean)
 }

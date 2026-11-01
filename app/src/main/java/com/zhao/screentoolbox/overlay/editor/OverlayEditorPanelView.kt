@@ -34,6 +34,9 @@ import com.zhao.screentoolbox.overlay.common.isNightMode
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
+private const val MAX_PERCENT = 100
+private const val DEFAULT_SEEK_BAR_INSET_DP = 12
+
 /**
  * 防烧屏和防误触共用的系统悬浮编辑面板。
  *
@@ -53,6 +56,7 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
     private var minWidthPx = 1
     private var minHeightPx = 1
     private var minimized = false
+    private var showOpacityControl = false
 
     private var widthSlider: SeekBar? = null
     private var widthValueLabel: TextView? = null
@@ -83,6 +87,7 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
     /** 首次显示面板时绑定配置、屏幕边界和操作回调。 */
     fun bind(
         config: OverlayConfig,
+        showOpacityControl: Boolean,
         screenWidth: Int,
         screenHeight: Int,
         minWidthPx: Int,
@@ -95,6 +100,7 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
             "悬浮编辑面板只支持防烧屏和防误触配置"
         }
         currentConfig = config
+        this.showOpacityControl = showOpacityControl
         this.onConfigChanged = onConfigChanged
         this.onSave = onSave
         this.onCancel = onCancel
@@ -208,6 +214,9 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
         controls.addView(createNameField(config.name))
         controls.addView(createSizeField("宽度", config.rect.width, isWidth = true))
         controls.addView(createSizeField("高度", config.rect.height, isWidth = false))
+        if (showOpacityControl) {
+            controls.addView(createOpacityField(config))
+        }
         when (config) {
             is BurnMaskConfig -> addBurnControls(controls, config)
             is TouchBlockConfig -> addTouchControls(controls, config)
@@ -362,6 +371,28 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
         parent.addView(createColorField(config.colorArgb))
     }
 
+    private fun createOpacityField(config: OverlayConfig): View {
+        val alpha = when (config) {
+            is BurnMaskConfig -> config.alpha
+            is TouchBlockConfig -> config.alpha
+            else -> error("透明度控件只支持防烧屏和防误触配置")
+        }
+        return createSliderField(
+            label = "透明度",
+            initial = (alpha.coerceIn(0f, 1f) * MAX_PERCENT).roundToInt(),
+            min = 0,
+            max = MAX_PERCENT,
+            unit = "%",
+        ) { value ->
+            val normalizedAlpha = value.toFloat() / MAX_PERCENT
+            when (currentConfig) {
+                is BurnMaskConfig -> updateBurnConfig { it.copy(alpha = normalizedAlpha) }
+                is TouchBlockConfig -> updateTouchConfig { it.copy(alpha = normalizedAlpha) }
+                else -> Unit
+            }
+        }
+    }
+
     private fun addTouchControls(parent: LinearLayout, config: TouchBlockConfig) {
         parent.addView(
             CheckBox(context).apply {
@@ -448,6 +479,7 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
             )
             addView(
                 createStyledSeekBar().apply {
+                    contentDescription = label
                     this.max = max - min
                     progress = initial - min
                     progressTintList = ColorStateList.valueOf(palette.primary)
@@ -473,7 +505,10 @@ class OverlayEditorPanelView(context: Context) : LinearLayout(context) {
     private fun createStyledSeekBar(): SeekBar {
         return SeekBar(context).apply {
             minimumHeight = 0
-            setPadding(0, 0, 0, 0)
+            val thumbInset = thumb?.intrinsicWidth?.div(2)
+                ?.coerceAtLeast(1)
+                ?: dp(DEFAULT_SEEK_BAR_INSET_DP)
+            setPadding(thumbInset, 0, thumbInset, 0)
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, dp(34))
         }
     }

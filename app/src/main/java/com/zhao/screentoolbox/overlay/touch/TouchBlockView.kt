@@ -9,8 +9,13 @@ import androidx.core.graphics.ColorUtils
 import com.zhao.screentoolbox.core.model.TouchBlockConfig
 import com.zhao.screentoolbox.overlay.common.RegionEditView
 import com.zhao.screentoolbox.overlay.common.overlayPrimaryColor
+import kotlin.math.roundToInt
 
-/** 有效防误触窗口保持透明，仅编辑态和可选边界提示可见。 */
+private const val EDITING_FILL_ALPHA = 28
+private const val BOUNDARY_ALPHA = 180
+private const val MAX_ALPHA = 255
+
+/** 防误触窗口按配置透明度显示填充，触摸拦截不依赖其可见程度。 */
 class TouchBlockView(context: Context) : RegionEditView(context) {
     private val density = resources.displayMetrics.density
     private val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -18,6 +23,7 @@ class TouchBlockView(context: Context) : RegionEditView(context) {
         strokeWidth = density
     }
     private var showBoundary = true
+    private var fillVisible = false
     private var currentConfig: TouchBlockConfig? = null
     private var currentEditable = false
 
@@ -37,18 +43,26 @@ class TouchBlockView(context: Context) : RegionEditView(context) {
         editable = currentEditable
         showBoundary = config.boundaryVisible
         val accent = context.overlayPrimaryColor()
-        hintPaint.color = ColorUtils.setAlphaComponent(accent, 180)
+        val configuredAlpha = (config.alpha.coerceIn(0f, 1f) * MAX_ALPHA).roundToInt()
+        val fillAlpha = if (editable) {
+            maxOf(configuredAlpha, EDITING_FILL_ALPHA)
+        } else {
+            configuredAlpha
+        }
+        fillVisible = fillAlpha > 0
+        hintPaint.color = ColorUtils.setAlphaComponent(accent, BOUNDARY_ALPHA)
         configurePaint(
-            fillColor = ColorUtils.setAlphaComponent(accent, 28),
+            fillColor = ColorUtils.setAlphaComponent(accent, fillAlpha),
             borderColor = accent,
             cornerRadiusDp = 8f,
         )
     }
 
     override fun drawContent(canvas: Canvas, rect: RectF) {
-        if (editable) {
+        if (editable || fillVisible) {
             super.drawContent(canvas, rect)
-        } else if (showBoundary) {
+        }
+        if (!editable && showBoundary) {
             val inset = 1f * density
             canvas.drawRoundRect(
                 RectF(inset, inset, width - inset, height - inset),

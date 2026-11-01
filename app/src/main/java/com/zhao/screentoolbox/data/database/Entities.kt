@@ -57,7 +57,7 @@ data class OverlayRegionEntity(
 /**
  * 防烧屏样式。
  *
- * `alpha` 是 v1 数据库的兼容字段：当前遮罩固定完全不透明，读写时统一归一化为 1f。
+ * `alpha` 表示填充层的独立透明度，避免复用颜色值中的 Alpha 通道。
  */
 data class BurnMaskStyleEntity(
     @PrimaryKey val configId: String,
@@ -80,6 +80,7 @@ data class BurnMaskStyleEntity(
 data class TouchBlockStyleEntity(
     @PrimaryKey val configId: String,
     val boundaryVisible: Boolean,
+    val alpha: Float,
 )
 
 @Entity(

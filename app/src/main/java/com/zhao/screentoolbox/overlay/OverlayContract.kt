@@ -21,7 +21,10 @@ interface OverlayController {
 
 sealed interface OverlayCommand {
     data class Preview(val config: OverlayConfig) : OverlayCommand
-    data class StartRegionEditor(val config: OverlayConfig) : OverlayCommand
+    data class StartRegionEditor(
+        val config: OverlayConfig,
+        val showOpacityControl: Boolean = false,
+    ) : OverlayCommand
     data object EndPreview : OverlayCommand
     data object TemporaryUnlock : OverlayCommand
     data object EndTemporaryUnlock : OverlayCommand

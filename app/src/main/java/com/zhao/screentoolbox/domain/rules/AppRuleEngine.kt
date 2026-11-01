@@ -34,10 +34,8 @@ class AppRuleEngine @Inject constructor() {
             .asSequence()
             .flatMap { it.configIds.asSequence() }
             .toSet()
-        val matchedRule = if (settings.autoAssociationEnabled) {
-            rules.firstOrNull { it.enabled && it.packageName == foregroundPackage }
-        } else {
-            null
+        val matchedRule = rules.firstOrNull {
+            it.enabled && it.packageName == foregroundPackage
         }
 
         if (matchedRule != null) {

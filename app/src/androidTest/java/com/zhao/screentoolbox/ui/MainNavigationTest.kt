@@ -24,4 +24,16 @@ class MainNavigationTest {
         composeRule.onNodeWithContentDescription("新建防烧屏遮罩").assertIsDisplayed()
         composeRule.onNodeWithText("新建防烧屏遮罩").assertDoesNotExist()
     }
+
+    @Test
+    fun settingsOmitsGlobalAssociationAndQuickActions() {
+        composeRule.onNodeWithText("设置").performClick()
+
+        composeRule.onNodeWithText("权限和自动化选项").assertIsDisplayed()
+        composeRule.onNodeWithText("开机自动恢复").assertIsDisplayed()
+        composeRule.onNodeWithText("应用自动关联").assertDoesNotExist()
+        composeRule.onNodeWithText("快捷操作").assertDoesNotExist()
+        composeRule.onNodeWithText("解除 30 秒").assertDoesNotExist()
+        composeRule.onNodeWithText("关闭全部").assertDoesNotExist()
+    }
 }

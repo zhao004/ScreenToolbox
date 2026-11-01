@@ -5,15 +5,18 @@ import android.content.res.Configuration
 import com.zhao.screentoolbox.core.model.BurnMaskConfig
 import com.zhao.screentoolbox.overlay.common.RegionEditView
 import com.zhao.screentoolbox.overlay.common.overlayPrimaryColor
+import kotlin.math.roundToInt
 
 private const val RGB_MASK = 0x00FFFFFF
-private const val OPAQUE_ALPHA_MASK = 0xFF000000.toInt()
+private const val MAX_ALPHA = 255
 
-/** 将配置颜色转换为固定完全不透明的 ARGB，颜色自身的透明度不参与遮罩渲染。 */
-internal fun opaqueBurnMaskColor(colorArgb: Long): Int =
-    (colorArgb.toInt() and RGB_MASK) or OPAQUE_ALPHA_MASK
+/** 将配置颜色和独立透明度组合为最终填充色，忽略颜色值自身的 Alpha 通道。 */
+internal fun burnMaskFillColor(colorArgb: Long, alpha: Float): Int {
+    val alphaChannel = (alpha.coerceIn(0f, 1f) * MAX_ALPHA).roundToInt()
+    return (colorArgb.toInt() and RGB_MASK) or (alphaChannel shl 24)
+}
 
-/** 防烧屏遮罩使用实色绘制，编辑态额外显示蓝色边框。 */
+/** 防烧屏遮罩按配置透明度绘制填充，编辑态额外显示蓝色边框。 */
 class BurnMaskView(context: Context) : RegionEditView(context) {
     private var currentConfig: BurnMaskConfig? = null
     private var currentEditable = false
@@ -33,7 +36,7 @@ class BurnMaskView(context: Context) : RegionEditView(context) {
         val config = currentConfig ?: return
         editable = currentEditable
         configurePaint(
-            fillColor = opaqueBurnMaskColor(config.colorArgb),
+            fillColor = burnMaskFillColor(config.colorArgb, config.alpha),
             borderColor = context.overlayPrimaryColor(),
             cornerRadiusDp = config.cornerRadiusDp,
         )

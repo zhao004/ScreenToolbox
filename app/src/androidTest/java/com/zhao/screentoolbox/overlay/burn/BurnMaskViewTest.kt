@@ -3,7 +3,6 @@ package com.zhao.screentoolbox.overlay.burn
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -17,7 +16,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class BurnMaskViewTest {
     @Test
-    fun configuredAlphaCannotMakeRenderedMaskTranslucent() {
+    fun configuredAlphaControlsRenderedMaskOpacity() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         lateinit var bitmap: Bitmap
@@ -31,6 +30,7 @@ class BurnMaskViewTest {
                         enabled = true,
                         rect = NormalizedRect.FullScreen,
                         colorArgb = 0x00000000,
+                        alpha = 0.6f,
                     ),
                     editable = false,
                 )
@@ -44,7 +44,6 @@ class BurnMaskViewTest {
             view.draw(Canvas(bitmap))
         }
 
-        assertEquals(Color.BLACK, bitmap.getPixel(10, 10))
-        assertEquals(255, Color.alpha(bitmap.getPixel(10, 10)))
+        assertEquals(0x99000000.toInt(), bitmap.getPixel(10, 10))
     }
 }

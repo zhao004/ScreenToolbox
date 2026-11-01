@@ -158,15 +158,6 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun setAutoAssociationEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.setAutoAssociationEnabled(enabled)
-            if (enabled && !permissionManager.hasUsageAccess()) {
-                messages.send("请先授权使用情况访问")
-            }
-        }
-    }
-
     fun setAutoStartOnBoot(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setAutoStartOnBoot(enabled)
@@ -190,25 +181,6 @@ class MainViewModel @Inject constructor(
                 runCatching { OverlayService.stopAll(context) }
                 runtimeStore.update { OverlayRuntimeState(serviceRunning = false) }
             }
-        }
-    }
-
-    fun temporaryUnlock() {
-        if (!permissionManager.canDrawOverlays()) {
-            viewModelScope.launch { messages.send("请先授权悬浮窗权限") }
-            return
-        }
-        viewModelScope.launch {
-            runCatching { OverlayService.temporaryUnlock(context) }
-                .onFailure { messages.send("临时解除启动失败") }
-        }
-    }
-
-    fun emergencyStop() {
-        viewModelScope.launch {
-            settingsRepository.setServiceEnabled(false)
-            runCatching { OverlayService.stopAll(context) }
-            runtimeStore.update { OverlayRuntimeState(serviceRunning = false) }
         }
     }
 
@@ -240,6 +212,7 @@ class MainViewModel @Inject constructor(
                 name = "防烧屏遮罩",
                 enabled = true,
                 rect = NormalizedRect(0.15f, 0.2f, 0.7f, 0.2f),
+                alpha = 0.6f,
             )
 
             OverlayType.TOUCH_BLOCK -> TouchBlockConfig(
@@ -247,11 +220,12 @@ class MainViewModel @Inject constructor(
                 name = "防误触区域",
                 enabled = true,
                 rect = NormalizedRect(0.1f, 0.4f, 0.8f, 0.2f),
+                alpha = 0.2f,
             )
 
             OverlayType.WATERMARK -> return
         }
-        launchRegionEditor(config, operation = "新建")
+        launchRegionEditor(config, operation = "新建", showOpacityControl = true)
     }
 
     /** 编辑现有防烧屏或防误触配置时复用系统悬浮编辑面板。 */
@@ -259,10 +233,14 @@ class MainViewModel @Inject constructor(
         if (config.type != OverlayType.BURN_MASK && config.type != OverlayType.TOUCH_BLOCK) {
             return
         }
-        launchRegionEditor(config, operation = "编辑")
+        launchRegionEditor(config, operation = "编辑", showOpacityControl = false)
     }
 
-    private fun launchRegionEditor(config: OverlayConfig, operation: String) {
+    private fun launchRegionEditor(
+        config: OverlayConfig,
+        operation: String,
+        showOpacityControl: Boolean,
+    ) {
         if (!permissionManager.canDrawOverlays()) {
             messages.trySend("请先授权悬浮窗权限后再$operation")
             return
@@ -280,7 +258,7 @@ class MainViewModel @Inject constructor(
                     return
                 }
         }
-        if (!commandBus.send(OverlayCommand.StartRegionEditor(config))) {
+        if (!commandBus.send(OverlayCommand.StartRegionEditor(config, showOpacityControl))) {
             messages.trySend("无法启动悬浮编辑面板")
         }
     }

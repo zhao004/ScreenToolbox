@@ -4,30 +4,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.LockOpen
-import androidx.compose.material.icons.outlined.PowerSettingsNew
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -39,17 +24,13 @@ import com.zhao.screentoolbox.ui.components.ScreenHeader
 @Composable
 fun SettingsScreen(
     state: MainUiState,
-    onAutoAssociationToggle: (Boolean) -> Unit,
     onBootToggle: (Boolean) -> Unit,
     onOverlayPermission: () -> Unit,
     onAccessibilityPermission: () -> Unit,
     onUsagePermission: () -> Unit,
     onNotificationPermission: () -> Unit,
-    onTemporaryUnlock: () -> Unit,
-    onEmergencyStop: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var confirmStop by remember { mutableStateOf(false) }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp, 20.dp, 16.dp, 32.dp),
@@ -78,12 +59,6 @@ fun SettingsScreen(
                     Text("自动化", style = MaterialTheme.typography.titleLarge)
                     HorizontalDivider(Modifier.padding(vertical = 8.dp))
                     SettingsSwitchRow(
-                        title = "应用自动关联",
-                        description = "进入已绑定应用时切换到对应规则",
-                        checked = state.settings.autoAssociationEnabled,
-                        onCheckedChange = onAutoAssociationToggle,
-                    )
-                    SettingsSwitchRow(
                         title = "开机自动恢复",
                         description = "系统允许时在开机后恢复服务",
                         checked = state.settings.autoStartOnBoot,
@@ -92,58 +67,6 @@ fun SettingsScreen(
                 }
             }
         }
-        item {
-            InfoCard {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("快捷操作", style = MaterialTheme.typography.titleLarge)
-                    HorizontalDivider()
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        OutlinedButton(
-                            onClick = onTemporaryUnlock,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Icon(Icons.Outlined.LockOpen, contentDescription = null)
-                            Spacer(Modifier.width(6.dp))
-                            Text("解除 30 秒")
-                        }
-                        Button(
-                            onClick = { confirmStop = true },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError,
-                            ),
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Icon(Icons.Outlined.PowerSettingsNew, contentDescription = null)
-                            Spacer(Modifier.width(6.dp))
-                            Text("关闭全部")
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (confirmStop) {
-        AlertDialog(
-            onDismissRequest = { confirmStop = false },
-            title = { Text("关闭全部悬浮窗") },
-            text = { Text("前台服务会停止，所有正在显示的窗口将立即移除。") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmStop = false
-                        onEmergencyStop()
-                    },
-                ) { Text("确认关闭") }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmStop = false }) { Text("取消") }
-            },
-        )
     }
 }
 

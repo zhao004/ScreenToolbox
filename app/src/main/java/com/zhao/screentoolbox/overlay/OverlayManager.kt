@@ -53,6 +53,7 @@ class OverlayManager @Inject constructor(
     private var editorPanelConfig: OverlayConfig? = null
     private var editorConfigChanged: ((OverlayConfig) -> Unit)? = null
     private var editorPanelMinimized = false
+    private var editorPanelShowsOpacityControl = false
     private var editorPanelSnapAnimator: ValueAnimator? = null
     private var regionGestureSnapshot: RegionGestureSnapshot? = null
     private var cachedScreenSize: ScreenSize? = null
@@ -150,6 +151,7 @@ class OverlayManager @Inject constructor(
     /** 显示可拖动、可最小化的参数面板，生命周期和所有系统窗口保持一致。 */
     fun showEditorPanel(
         config: OverlayConfig,
+        showOpacityControl: Boolean,
         onConfigChanged: (OverlayConfig) -> Unit,
         onSave: () -> Unit,
         onCancel: () -> Unit,
@@ -166,13 +168,15 @@ class OverlayManager @Inject constructor(
         }
         removeEditorPanel()
         editorPanelConfig = config
+        editorPanelShowsOpacityControl = showOpacityControl
         editorConfigChanged = onConfigChanged
         editorPanelMinimized = false
         val screen = screenSize()
-        val panelSize = expandedPanelSize(screen, config)
+        val panelSize = expandedPanelSize(screen, config, showOpacityControl)
         val panel = OverlayEditorPanelView(host.context).apply {
             bind(
                 config = config,
+                showOpacityControl = showOpacityControl,
                 screenWidth = screen.width,
                 screenHeight = screen.height,
                 minWidthPx = minRegionSizePx,
@@ -248,6 +252,7 @@ class OverlayManager @Inject constructor(
         editorPanelConfig = null
         editorConfigChanged = null
         editorPanelMinimized = false
+        editorPanelShowsOpacityControl = false
     }
 
     fun isEditorPanelVisible(): Boolean = editorPanelView != null
@@ -470,7 +475,11 @@ class OverlayManager @Inject constructor(
         val params = editorPanelParams ?: return
         cancelEditorPanelAnimation()
         val screen = screenSize()
-        val panelSize = expandedPanelSize(screen, editorPanelConfig)
+        val panelSize = expandedPanelSize(
+            screen,
+            editorPanelConfig,
+            editorPanelShowsOpacityControl,
+        )
         val side = OverlayPanelGeometry.nearestSide(
             x = params.x,
             width = params.width,
@@ -564,7 +573,11 @@ class OverlayManager @Inject constructor(
                 )
             }
         } else {
-            val panelSize = expandedPanelSize(screen, editorPanelConfig)
+            val panelSize = expandedPanelSize(
+                screen,
+                editorPanelConfig,
+                editorPanelShowsOpacityControl,
+            )
             params.width = panelSize.width
             params.height = panelSize.height
             params.x = OverlayPanelGeometry.clampedOffset(
@@ -601,11 +614,15 @@ class OverlayManager @Inject constructor(
         }
     }
 
-    private fun expandedPanelSize(screen: ScreenSize, config: OverlayConfig?): PanelSize {
+    private fun expandedPanelSize(
+        screen: ScreenSize,
+        config: OverlayConfig?,
+        showOpacityControl: Boolean,
+    ): PanelSize {
         val width = min(max(1, screen.width - dp(24)), dp(360)).coerceAtLeast(1)
         val preferredHeightDp = when (config) {
-            is BurnMaskConfig -> 430
-            is TouchBlockConfig -> 260
+            is BurnMaskConfig -> if (showOpacityControl) 486 else 430
+            is TouchBlockConfig -> if (showOpacityControl) 326 else 260
             else -> 300
         }
         val height = min(max(1, screen.height - dp(24)), dp(preferredHeightDp)).coerceAtLeast(1)
