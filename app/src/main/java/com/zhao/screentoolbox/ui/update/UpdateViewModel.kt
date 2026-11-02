@@ -49,7 +49,6 @@ enum class UpdatePhase {
 
 data class UpdateUiState(
     val currentVersionName: String,
-    val automaticChecksEnabled: Boolean = true,
     val lastCheckAtEpochMs: Long = 0L,
     val phase: UpdatePhase = UpdatePhase.IDLE,
     val availableUpdate: AvailableUpdate? = null,
@@ -104,27 +103,13 @@ class UpdateViewModel @Inject constructor(
         observePreferences()
     }
 
-    /** Activity 首次组合时调用；是否联网由持久化节流和自动检查开关决定。 */
+    /** Activity 首次组合时调用；Release 构建是否联网仅由持久化节流决定。 */
     fun checkAutomatically() {
         requestCheck(manual = false)
     }
 
     fun checkManually() {
         requestCheck(manual = true)
-    }
-
-    fun setAutomaticChecksEnabled(enabled: Boolean) {
-        if (mutableUiState.value.isDebugBuild) return
-        val previous = mutableUiState.value.automaticChecksEnabled
-        mutableUiState.update { it.copy(automaticChecksEnabled = enabled) }
-        viewModelScope.launch {
-            runCatching {
-                preferencesRepository.setAutomaticChecksEnabled(enabled)
-            }.onFailure {
-                mutableUiState.update { it.copy(automaticChecksEnabled = previous) }
-                sendMessage("保存自动检查设置失败")
-            }
-        }
     }
 
     fun downloadUpdate() {
@@ -249,12 +234,11 @@ class UpdateViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesRepository.preferences
                 .catch {
-                    sendMessage("读取更新设置失败")
+                    sendMessage("读取更新状态失败")
                 }
                 .collect { preferences ->
                     mutableUiState.update {
                         it.copy(
-                            automaticChecksEnabled = preferences.automaticChecksEnabled,
                             lastCheckAtEpochMs = preferences.lastCheckAtEpochMs,
                         )
                     }
@@ -317,7 +301,6 @@ class UpdateViewModel @Inject constructor(
             try {
                 val preferences = preferencesRepository.preferences.first()
                 val now = clock.nowEpochMs()
-                if (!manual && !preferences.automaticChecksEnabled) return@launch
                 val elapsedSinceLastCheck = now - preferences.lastCheckAtEpochMs
                 if (
                     !manual &&

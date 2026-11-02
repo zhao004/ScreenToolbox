@@ -63,8 +63,8 @@ class UpdateViewModelTest {
     @Test
     fun automaticCheckWithinTwentyFourHoursIsSkippedButManualCheckRuns() =
         runTest(dispatcher) {
-            preferencesRepository.initial = UpdatePreferences(
-                lastCheckAtEpochMs = NOW - 1_000L,
+            preferencesRepository = FakeUpdatePreferencesRepository(
+                UpdatePreferences(lastCheckAtEpochMs = NOW - 1_000L),
             )
             coEvery {
                 updateRepository.checkForUpdate("1.0.0", listOf("arm64-v8a"))
@@ -84,6 +84,28 @@ class UpdateViewModelTest {
                 updateRepository.checkForUpdate("1.0.0", listOf("arm64-v8a"))
             }
             assertEquals(UpdatePhase.UP_TO_DATE, viewModel.uiState.value.phase)
+        }
+
+    @Test
+    fun automaticCheckAfterTwentyFourHoursRunsAndOpensAvailableDialog() =
+        runTest(dispatcher) {
+            preferencesRepository = FakeUpdatePreferencesRepository(
+                UpdatePreferences(lastCheckAtEpochMs = NOW - AUTO_CHECK_INTERVAL_MS),
+            )
+            coEvery {
+                updateRepository.checkForUpdate("1.0.0", listOf("arm64-v8a"))
+            } returns UpdateCheckResult.Available(UPDATE)
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            viewModel.checkAutomatically()
+            advanceUntilIdle()
+
+            coVerify(exactly = 1) {
+                updateRepository.checkForUpdate("1.0.0", listOf("arm64-v8a"))
+            }
+            assertEquals(UpdatePhase.AVAILABLE, viewModel.uiState.value.phase)
+            assertTrue(viewModel.uiState.value.dialogVisible)
         }
 
     @Test
@@ -144,16 +166,12 @@ class UpdateViewModelTest {
     }
 
     private class FakeUpdatePreferencesRepository(
-        var initial: UpdatePreferences = UpdatePreferences(),
+        initial: UpdatePreferences = UpdatePreferences(),
     ) : UpdatePreferencesRepository {
         private val state = MutableStateFlow(initial)
         override val preferences: Flow<UpdatePreferences> = state
         val value: UpdatePreferences
             get() = state.value
-
-        override suspend fun setAutomaticChecksEnabled(enabled: Boolean) {
-            state.value = state.value.copy(automaticChecksEnabled = enabled)
-        }
 
         override suspend fun recordCheckAttempt(epochMs: Long) {
             state.value = state.value.copy(lastCheckAtEpochMs = epochMs)
@@ -170,6 +188,7 @@ class UpdateViewModelTest {
 
     private companion object {
         const val NOW = 10_000_000L
+        const val AUTO_CHECK_INTERVAL_MS = 24L * 60L * 60L * 1000L
         const val DOWNLOAD_ID = 42L
         val UPDATE = AvailableUpdate(
             tag = "v1.1.0",

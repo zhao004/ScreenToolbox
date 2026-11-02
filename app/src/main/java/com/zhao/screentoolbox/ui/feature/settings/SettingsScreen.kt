@@ -57,7 +57,6 @@ fun SettingsScreen(
     onUsagePermission: () -> Unit,
     onNotificationPermission: () -> Unit,
     updateState: UpdateUiState,
-    onAutomaticUpdatesToggle: (Boolean) -> Unit,
     onCheckUpdates: () -> Unit,
     onShowUpdateDialog: () -> Unit,
     modifier: Modifier = Modifier,
@@ -103,7 +102,6 @@ fun SettingsScreen(
             item {
                 SoftwareUpdateCard(
                     state = updateState,
-                    onAutomaticChecksToggle = onAutomaticUpdatesToggle,
                     onCheckUpdates = onCheckUpdates,
                     onShowDialog = onShowUpdateDialog,
                 )
@@ -273,7 +271,6 @@ private fun AutomationCard(
 @Composable
 private fun SoftwareUpdateCard(
     state: UpdateUiState,
-    onAutomaticChecksToggle: (Boolean) -> Unit,
     onCheckUpdates: () -> Unit,
     onShowDialog: () -> Unit,
 ) {
@@ -290,7 +287,7 @@ private fun SoftwareUpdateCard(
             "${update.versionName} 已准备安装"
 
         phase == UpdatePhase.ERROR -> state.errorMessage ?: "更新任务失败"
-        else -> "启动时自动检查 GitHub Releases"
+        else -> null
     }
     val statusActive = phase == UpdatePhase.UP_TO_DATE ||
         phase == UpdatePhase.AVAILABLE ||
@@ -334,15 +331,17 @@ private fun SoftwareUpdateCard(
                     warning = statusWarning,
                 )
             }
-            Text(
-                text = statusText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (statusWarning) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
+            statusText?.let { text ->
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (statusWarning) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
             if (
                 phase == UpdatePhase.DOWNLOADING ||
                 phase == UpdatePhase.VERIFYING
@@ -361,27 +360,6 @@ private fun SoftwareUpdateCard(
                 modifier = Modifier.padding(vertical = AppSpacing.xs),
                 color = MaterialTheme.colorScheme.outlineVariant,
             )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = AppSpacing.xxs),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("自动检查更新", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        text = "每次启动最多每 24 小时检查一次",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(
-                    checked = state.automaticChecksEnabled,
-                    onCheckedChange = onAutomaticChecksToggle,
-                    enabled = !state.isDebugBuild,
-                )
-            }
             if (!state.isDebugBuild) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),

@@ -277,7 +277,6 @@ fun ScreenToolboxRoot(
                     },
                     onNotificationPermission = requestNotificationPermission,
                     updateState = updateState,
-                    onAutomaticUpdatesToggle = updateViewModel::setAutomaticChecksEnabled,
                     onCheckUpdates = updateViewModel::checkManually,
                     onShowUpdateDialog = updateViewModel::showUpdateDialog,
                 )

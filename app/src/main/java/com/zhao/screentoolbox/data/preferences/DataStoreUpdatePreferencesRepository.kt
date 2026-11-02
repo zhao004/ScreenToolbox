@@ -3,7 +3,6 @@ package com.zhao.screentoolbox.data.preferences
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.longPreferencesKey
@@ -25,7 +24,11 @@ private val Context.updateDataStore: DataStore<Preferences> by preferencesDataSt
     name = "screen_toolbox_update_preferences",
 )
 
-/** 独立保存更新节流信息和可恢复的系统下载任务。 */
+/**
+ * 独立保存更新节流信息和可恢复的系统下载任务。
+ *
+ * 旧版本的 automatic_checks_enabled 键不再读取，自动检查固定启用。
+ */
 @Singleton
 class DataStoreUpdatePreferencesRepository @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -35,10 +38,6 @@ class DataStoreUpdatePreferencesRepository @Inject constructor(
             if (exception is IOException) emit(emptyPreferences()) else throw exception
         }
         .map(::toPreferences)
-
-    override suspend fun setAutomaticChecksEnabled(enabled: Boolean) {
-        context.updateDataStore.edit { it[Keys.AutomaticChecksEnabled] = enabled }
-    }
 
     override suspend fun recordCheckAttempt(epochMs: Long) {
         context.updateDataStore.edit { it[Keys.LastCheckAtEpochMs] = epochMs }
@@ -101,14 +100,12 @@ class DataStoreUpdatePreferencesRepository @Inject constructor(
             null
         }
         return UpdatePreferences(
-            automaticChecksEnabled = preferences[Keys.AutomaticChecksEnabled] ?: true,
             lastCheckAtEpochMs = preferences[Keys.LastCheckAtEpochMs] ?: 0L,
             pendingDownload = pending,
         )
     }
 
     private object Keys {
-        val AutomaticChecksEnabled = booleanPreferencesKey("automatic_checks_enabled")
         val LastCheckAtEpochMs = longPreferencesKey("last_check_at_epoch_ms")
         val PendingDownloadId = longPreferencesKey("pending_download_id")
         val PendingTag = stringPreferencesKey("pending_tag")

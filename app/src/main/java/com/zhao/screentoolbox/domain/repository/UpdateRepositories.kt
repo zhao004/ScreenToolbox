@@ -21,7 +21,6 @@ interface UpdateRepository {
 
 /** 更新检查与未完成下载的本地持久化状态。 */
 data class UpdatePreferences(
-    val automaticChecksEnabled: Boolean = true,
     val lastCheckAtEpochMs: Long = 0L,
     val pendingDownload: PendingUpdateDownload? = null,
 )
@@ -30,7 +29,6 @@ data class UpdatePreferences(
 interface UpdatePreferencesRepository {
     val preferences: Flow<UpdatePreferences>
 
-    suspend fun setAutomaticChecksEnabled(enabled: Boolean)
     suspend fun recordCheckAttempt(epochMs: Long)
     suspend fun setPendingDownload(pending: PendingUpdateDownload)
     suspend fun clearPendingDownload()
