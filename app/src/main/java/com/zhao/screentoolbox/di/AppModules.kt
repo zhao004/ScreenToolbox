@@ -7,13 +7,21 @@ import com.zhao.screentoolbox.data.database.AppRuleDao
 import com.zhao.screentoolbox.data.database.OperationLogDao
 import com.zhao.screentoolbox.data.database.OverlayDao
 import com.zhao.screentoolbox.data.preferences.DataStoreSettingsRepository
+import com.zhao.screentoolbox.data.preferences.DataStoreUpdatePreferencesRepository
 import com.zhao.screentoolbox.data.repository.AppRuleRepositoryImpl
 import com.zhao.screentoolbox.data.repository.OverlayRepositoryImpl
 import com.zhao.screentoolbox.data.repository.OperationLogRepositoryImpl
+import com.zhao.screentoolbox.data.update.GitHubUpdateRepository
 import com.zhao.screentoolbox.domain.repository.AppRuleRepository
 import com.zhao.screentoolbox.domain.repository.OverlayRepository
 import com.zhao.screentoolbox.domain.repository.SettingsRepository
 import com.zhao.screentoolbox.domain.repository.OperationLogRepository
+import com.zhao.screentoolbox.domain.repository.UpdateClock
+import com.zhao.screentoolbox.domain.repository.UpdateEnvironment
+import com.zhao.screentoolbox.domain.repository.UpdatePreferencesRepository
+import com.zhao.screentoolbox.domain.repository.UpdateRepository
+import com.zhao.screentoolbox.system.update.AndroidUpdateEnvironment
+import com.zhao.screentoolbox.system.update.SystemUpdateClock
 import com.zhao.screentoolbox.system.usage.AppUsageMonitor
 import com.zhao.screentoolbox.system.usage.ForegroundAppMonitor
 import dagger.Binds
@@ -53,6 +61,26 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindSettingsRepository(implementation: DataStoreSettingsRepository): SettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindUpdateRepository(implementation: GitHubUpdateRepository): UpdateRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindUpdatePreferencesRepository(
+        implementation: DataStoreUpdatePreferencesRepository,
+    ): UpdatePreferencesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindUpdateEnvironment(
+        implementation: AndroidUpdateEnvironment,
+    ): UpdateEnvironment
+
+    @Binds
+    @Singleton
+    abstract fun bindUpdateClock(implementation: SystemUpdateClock): UpdateClock
 
     @Binds
     @Singleton

@@ -171,6 +171,7 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.semver4j)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

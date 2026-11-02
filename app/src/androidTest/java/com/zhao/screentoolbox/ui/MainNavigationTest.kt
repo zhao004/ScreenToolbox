@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.zhao.screentoolbox.MainActivity
 import org.junit.Rule
@@ -31,9 +32,10 @@ class MainNavigationTest {
     fun settingsOmitsGlobalAssociationAndQuickActions() {
         composeRule.onNode(hasText("设置") and isSelectable()).performClick()
 
-        composeRule.onNodeWithText("权限、前台服务与自动化选项").assertIsDisplayed()
+        composeRule.onNodeWithText("权限、前台服务、自动化与版本更新").assertIsDisplayed()
         composeRule.onNodeWithText("前台服务").assertIsDisplayed()
         composeRule.onNodeWithText("开机自动恢复").assertIsDisplayed()
+        composeRule.onNodeWithText("软件更新").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("应用自动关联").assertDoesNotExist()
         composeRule.onNodeWithText("快捷操作").assertDoesNotExist()
         composeRule.onNodeWithText("解除 30 秒").assertDoesNotExist()

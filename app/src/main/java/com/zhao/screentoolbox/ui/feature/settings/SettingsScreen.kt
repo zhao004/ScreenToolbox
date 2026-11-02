@@ -15,11 +15,14 @@ import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.RestartAlt
+import androidx.compose.material.icons.outlined.SystemUpdateAlt
 import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +38,8 @@ import com.zhao.screentoolbox.ui.components.PermissionRow
 import com.zhao.screentoolbox.ui.components.ScreenHeader
 import com.zhao.screentoolbox.ui.components.StatusBadge
 import com.zhao.screentoolbox.ui.theme.AppSpacing
+import com.zhao.screentoolbox.ui.update.UpdatePhase
+import com.zhao.screentoolbox.ui.update.UpdateUiState
 
 /**
  * 设置页集中展示服务运行态、系统权限与自动化开关。
@@ -51,6 +56,10 @@ fun SettingsScreen(
     onAccessibilityPermission: () -> Unit,
     onUsagePermission: () -> Unit,
     onNotificationPermission: () -> Unit,
+    updateState: UpdateUiState,
+    onAutomaticUpdatesToggle: (Boolean) -> Unit,
+    onCheckUpdates: () -> Unit,
+    onShowUpdateDialog: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val ruleControls = state.runtime.matchedRulePackage != null
@@ -65,7 +74,7 @@ fun SettingsScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(AppSpacing.sm),
         ) {
-            item { ScreenHeader("设置", "权限、前台服务与自动化选项") }
+            item { ScreenHeader("设置", "权限、前台服务、自动化与版本更新") }
             state.runtime.lastError?.let { error ->
                 item { ErrorBanner(text = error, onDismiss = onDismissError) }
             }
@@ -89,6 +98,14 @@ fun SettingsScreen(
                 AutomationCard(
                     checked = state.settings.autoStartOnBoot,
                     onCheckedChange = onBootToggle,
+                )
+            }
+            item {
+                SoftwareUpdateCard(
+                    state = updateState,
+                    onAutomaticChecksToggle = onAutomaticUpdatesToggle,
+                    onCheckUpdates = onCheckUpdates,
+                    onShowDialog = onShowUpdateDialog,
                 )
             }
         }
@@ -248,6 +265,142 @@ private fun AutomationCard(
                     )
                 }
                 Switch(checked = checked, onCheckedChange = onCheckedChange)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SoftwareUpdateCard(
+    state: UpdateUiState,
+    onAutomaticChecksToggle: (Boolean) -> Unit,
+    onCheckUpdates: () -> Unit,
+    onShowDialog: () -> Unit,
+) {
+    val update = state.availableUpdate
+    val phase = state.phase
+    val statusText = when {
+        state.isDebugBuild -> "开发版本不检查更新"
+        phase == UpdatePhase.CHECKING -> "正在检查更新"
+        phase == UpdatePhase.UP_TO_DATE -> "当前已是最新版本"
+        phase == UpdatePhase.AVAILABLE && update != null -> "发现新版本 ${update.versionName}"
+        phase == UpdatePhase.DOWNLOADING && update != null -> "正在下载 ${update.versionName}"
+        phase == UpdatePhase.VERIFYING && update != null -> "正在校验 ${update.versionName}"
+        phase == UpdatePhase.READY_TO_INSTALL && update != null ->
+            "${update.versionName} 已准备安装"
+
+        phase == UpdatePhase.ERROR -> state.errorMessage ?: "更新任务失败"
+        else -> "启动时自动检查 GitHub Releases"
+    }
+    val statusActive = phase == UpdatePhase.UP_TO_DATE ||
+        phase == UpdatePhase.AVAILABLE ||
+        phase == UpdatePhase.READY_TO_INSTALL
+    val statusWarning = phase == UpdatePhase.ERROR
+    val actionText = when {
+        state.isDebugBuild -> ""
+        phase == UpdatePhase.CHECKING -> "检查中"
+        update != null -> "查看详情"
+        phase == UpdatePhase.ERROR -> "重试"
+        else -> "检查更新"
+    }
+
+    InfoCard {
+        Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
+            ) {
+                IconTile(imageVector = Icons.Outlined.SystemUpdateAlt)
+                Column(Modifier.weight(1f)) {
+                    Text("软件更新", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        text = "当前版本 ${state.currentVersionName}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                StatusBadge(
+                    text = when {
+                        state.isDebugBuild -> "开发版"
+                        phase == UpdatePhase.ERROR -> "需要处理"
+                        phase == UpdatePhase.DOWNLOADING -> "下载中"
+                        phase == UpdatePhase.VERIFYING -> "校验中"
+                        phase == UpdatePhase.READY_TO_INSTALL -> "待安装"
+                        phase == UpdatePhase.AVAILABLE -> "可更新"
+                        else -> "稳定版"
+                    },
+                    active = statusActive,
+                    warning = statusWarning,
+                )
+            }
+            Text(
+                text = statusText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (statusWarning) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+            if (
+                phase == UpdatePhase.DOWNLOADING ||
+                phase == UpdatePhase.VERIFYING
+            ) {
+                val fraction = state.downloadProgress?.fraction
+                if (phase == UpdatePhase.VERIFYING || fraction == null) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                } else {
+                    LinearProgressIndicator(
+                        progress = { fraction },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = AppSpacing.xs),
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = AppSpacing.xxs),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("自动检查更新", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = "每次启动最多每 24 小时检查一次",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = state.automaticChecksEnabled,
+                    onCheckedChange = onAutomaticChecksToggle,
+                    enabled = !state.isDebugBuild,
+                )
+            }
+            if (!state.isDebugBuild) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(
+                        onClick = {
+                            when {
+                                update != null && phase != UpdatePhase.CHECKING -> onShowDialog()
+                                phase == UpdatePhase.ERROR -> onCheckUpdates()
+                                phase == UpdatePhase.IDLE ||
+                                    phase == UpdatePhase.UP_TO_DATE -> onCheckUpdates()
+                            }
+                        },
+                        enabled = phase != UpdatePhase.CHECKING && actionText.isNotEmpty(),
+                    ) {
+                        Text(actionText)
+                    }
+                }
             }
         }
     }

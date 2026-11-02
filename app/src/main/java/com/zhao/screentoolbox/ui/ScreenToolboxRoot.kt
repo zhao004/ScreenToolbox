@@ -1,6 +1,7 @@
 package com.zhao.screentoolbox.ui
 
 import android.Manifest
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -50,6 +51,9 @@ import com.zhao.screentoolbox.ui.feature.apps.AppRuleEditorScreen
 import com.zhao.screentoolbox.ui.feature.apps.AppsScreen
 import com.zhao.screentoolbox.ui.feature.overlays.WatermarkEditorScreen
 import com.zhao.screentoolbox.ui.feature.settings.SettingsScreen
+import com.zhao.screentoolbox.ui.update.UpdateDialog
+import com.zhao.screentoolbox.ui.update.UpdateEvent
+import com.zhao.screentoolbox.ui.update.UpdateViewModel
 import java.util.UUID
 
 private object Routes {
@@ -93,8 +97,12 @@ private val bottomDestinations = listOf(
 )
 
 @Composable
-fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
+fun ScreenToolboxRoot(
+    viewModel: MainViewModel = hiltViewModel(),
+    updateViewModel: UpdateViewModel = hiltViewModel(),
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val updateState by updateViewModel.uiState.collectAsStateWithLifecycle()
     val navController = rememberNavController()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -102,6 +110,9 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
     val notificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { viewModel.refreshPermissions() }
+    val unknownSourcesPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { updateViewModel.onUnknownSourcesReturned() }
 
     val requestNotificationPermission = {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -113,6 +124,31 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
 
     LaunchedEffect(viewModel) {
         viewModel.messageEvents.collect { snackbar.showSnackbar(it) }
+    }
+    LaunchedEffect(updateViewModel) {
+        updateViewModel.events.collect { event ->
+            when (event) {
+                is UpdateEvent.Message -> snackbar.showSnackbar(event.text)
+                is UpdateEvent.OpenInstaller -> {
+                    runCatching { context.startActivity(event.intent) }
+                        .onFailure { snackbar.showSnackbar("无法打开系统安装器") }
+                }
+
+                is UpdateEvent.OpenUnknownSourcesSettings -> {
+                    runCatching { unknownSourcesPermission.launch(event.intent) }
+                        .onFailure { snackbar.showSnackbar("无法打开安装权限设置") }
+                }
+
+                is UpdateEvent.OpenReleasePage -> {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(event.url))
+                    runCatching { context.startActivity(intent) }
+                        .onFailure { snackbar.showSnackbar("无法打开版本说明") }
+                }
+            }
+        }
+    }
+    LaunchedEffect(updateViewModel) {
+        updateViewModel.checkAutomatically()
     }
     LaunchedEffect(viewModel, navController) {
         viewModel.ruleActionEvents.collect { action ->
@@ -240,6 +276,10 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
                         context.startActivity(viewModel.usageAccessIntent())
                     },
                     onNotificationPermission = requestNotificationPermission,
+                    updateState = updateState,
+                    onAutomaticUpdatesToggle = updateViewModel::setAutomaticChecksEnabled,
+                    onCheckUpdates = updateViewModel::checkManually,
+                    onShowUpdateDialog = updateViewModel::showUpdateDialog,
                 )
             }
             composable(Routes.WatermarkEditor) { entry ->
@@ -309,4 +349,13 @@ fun ScreenToolboxRoot(viewModel: MainViewModel = hiltViewModel()) {
             }
         }
     }
+    UpdateDialog(
+        state = updateState,
+        onDismiss = updateViewModel::dismissDialog,
+        onDownload = updateViewModel::downloadUpdate,
+        onCancelDownload = updateViewModel::cancelDownload,
+        onInstall = updateViewModel::requestInstall,
+        onRetry = updateViewModel::checkManually,
+        onOpenReleasePage = updateViewModel::openReleasePage,
+    )
 }
